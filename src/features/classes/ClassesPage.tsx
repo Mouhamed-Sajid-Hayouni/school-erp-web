@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { apiDelete, apiGet, apiPost } from "../../lib/api";
+import LoadingState from "../../components/common/LoadingState";
+import ErrorState from "../../components/common/ErrorState";
+import EmptyState from "../../components/common/EmptyState";
 
 type ClassRow = {
   id: string;
@@ -20,6 +24,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
     name: "",
     academicYear: "",
   });
+
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -28,17 +33,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
       setLoading(true);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/classes`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to load classes.");
-      }
-
-      const json = await response.json();
+      const json = await apiGet<ClassRow[]>(`${apiBaseUrl}/api/classes`, token);
       setClasses(Array.isArray(json) ? json : []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
@@ -59,7 +54,10 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.name.trim() || !form.academicYear.trim()) {
+    const trimmedName = form.name.trim();
+    const trimmedAcademicYear = form.academicYear.trim();
+
+    if (!trimmedName || !trimmedAcademicYear) {
       setError("Class name and academic year are required.");
       return;
     }
@@ -68,24 +66,13 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
       setCreating(true);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/classes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          academicYear: form.academicYear.trim(),
-        }),
+      const created = await apiPost<
+        ClassRow,
+        { name: string; academicYear: string }
+      >(`${apiBaseUrl}/api/classes`, token, {
+        name: trimmedName,
+        academicYear: trimmedAcademicYear,
       });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to create class.");
-      }
-
-      const created = await response.json();
 
       setClasses((prev) => [created, ...prev]);
       setForm({
@@ -108,18 +95,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
       setDeletingId(id);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/classes/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to delete class.");
-      }
-
+      await apiDelete(`${apiBaseUrl}/api/classes/${id}`, token);
       setClasses((prev) => prev.filter((item) => item.id !== id));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
@@ -149,7 +125,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
               value={form.name}
               onChange={(e) => handleChange("name", e.target.value)}
               placeholder="e.g. 1ère Année A"
-              className="w-full rounded-xl border px-3 py-2 outline-none ring-0 focus:border-slate-400"
+              className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
             />
           </div>
 
@@ -160,7 +136,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
               value={form.academicYear}
               onChange={(e) => handleChange("academicYear", e.target.value)}
               placeholder="e.g. 2025-2026"
-              className="w-full rounded-xl border px-3 py-2 outline-none ring-0 focus:border-slate-400"
+              className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
             />
           </div>
 
@@ -188,11 +164,11 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
         </div>
 
         {loading ? (
-          <p>Loading classes...</p>
+          <LoadingState message="Loading classes..." />
         ) : error ? (
-          <p className="text-red-700">{error}</p>
+          <ErrorState message={error} />
         ) : classes.length === 0 ? (
-          <p className="text-slate-500">No classes found.</p>
+          <EmptyState message="No classes found." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
