@@ -3,6 +3,7 @@ import DashboardLayout from "./components/layout/DashboardLayout";
 import MyPortalPage from "./features/portal/MyPortalPage";
 import UsersPage from "./features/users/UsersPage";
 import ClassesPage from "./features/classes/ClassesPage";
+import SubjectsPage from "./features/subjects/SubjectsPage";
 
 type TabKey =
   | "portal"
@@ -53,7 +54,7 @@ export default function Dashboard() {
         return <ClassesPage apiBaseUrl={API_BASE_URL} token={token} />;
 
       case "subjects":
-        return <div className="rounded-2xl bg-white p-6 shadow-sm">Subjects page next.</div>;
+        return <SubjectsPage apiBaseUrl={API_BASE_URL} token={token} />;
 
       case "schedules":
         return <div className="rounded-2xl bg-white p-6 shadow-sm">Schedules page next.</div>;
