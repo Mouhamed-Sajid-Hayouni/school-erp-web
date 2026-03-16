@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import MyPortalPage from "./features/portal/MyPortalPage";
 import UsersPage from "./features/users/UsersPage";
+import ClassesPage from "./features/classes/ClassesPage";
 
 type TabKey =
   | "portal"
@@ -49,7 +50,7 @@ export default function Dashboard() {
         return <UsersPage apiBaseUrl={API_BASE_URL} token={token} />;
 
       case "classes":
-        return <div className="rounded-2xl bg-white p-6 shadow-sm">Classes page next.</div>;
+        return <ClassesPage apiBaseUrl={API_BASE_URL} token={token} />;
 
       case "subjects":
         return <div className="rounded-2xl bg-white p-6 shadow-sm">Subjects page next.</div>;
