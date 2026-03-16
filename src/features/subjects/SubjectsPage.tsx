@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { apiDelete, apiGet, apiPost } from "../../lib/api";
+import LoadingState from "../../components/common/LoadingState";
+import ErrorState from "../../components/common/ErrorState";
+import EmptyState from "../../components/common/EmptyState";
 
 type SubjectRow = {
   id: string;
@@ -29,17 +33,7 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
       setLoading(true);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/subjects`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to load subjects.");
-      }
-
-      const json = await response.json();
+      const json = await apiGet<SubjectRow[]>(`${apiBaseUrl}/api/subjects`, token);
       setSubjects(Array.isArray(json) ? json : []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
@@ -77,24 +71,13 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
       setCreating(true);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/subjects`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: trimmedName,
-          coefficient: parsedCoefficient,
-        }),
+      const created = await apiPost<
+        SubjectRow,
+        { name: string; coefficient: number }
+      >(`${apiBaseUrl}/api/subjects`, token, {
+        name: trimmedName,
+        coefficient: parsedCoefficient,
       });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to create subject.");
-      }
-
-      const created = await response.json();
 
       setSubjects((prev) => [created, ...prev]);
       setForm({
@@ -117,18 +100,7 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
       setDeletingId(id);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/subjects/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to delete subject.");
-      }
-
+      await apiDelete(`${apiBaseUrl}/api/subjects/${id}`, token);
       setSubjects((prev) => prev.filter((item) => item.id !== id));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
@@ -199,11 +171,11 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
         </div>
 
         {loading ? (
-          <p>Loading subjects...</p>
+          <LoadingState message="Loading subjects..." />
         ) : error ? (
-          <p className="text-red-700">{error}</p>
+          <ErrorState message={error} />
         ) : subjects.length === 0 ? (
-          <p className="text-slate-500">No subjects found.</p>
+          <EmptyState message="No subjects found." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
