@@ -27,6 +27,9 @@ type ScheduleRow = {
   dayOfWeek: string;
   startTime: string;
   endTime: string;
+  classId?: string;
+  subjectId?: string;
+  teacherId?: string;
   class?: {
     id: string;
     name: string;
@@ -60,6 +63,15 @@ const DAY_OPTIONS = [
   "Samedi",
 ];
 
+const INITIAL_FORM = {
+  classId: "",
+  subjectId: "",
+  teacherId: "",
+  dayOfWeek: "Lundi",
+  startTime: "",
+  endTime: "",
+};
+
 export default function SchedulesPage({
   apiBaseUrl,
   token,
@@ -74,16 +86,11 @@ export default function SchedulesPage({
   const [error, setError] = useState("");
 
   const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
-    classId: "",
-    subjectId: "",
-    teacherId: "",
-    dayOfWeek: "Lundi",
-    startTime: "",
-    endTime: "",
-  });
+  const [form, setForm] = useState(INITIAL_FORM);
 
   const authHeaders = {
     Authorization: `Bearer ${token}`,
@@ -177,9 +184,31 @@ export default function SchedulesPage({
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const resetForm = () => {
+    setForm(INITIAL_FORM);
+    setEditingScheduleId(null);
+    setError("");
+  };
 
+  const handleEdit = (schedule: ScheduleRow) => {
+    setError("");
+    setEditingScheduleId(schedule.id);
+    setForm({
+      classId: schedule.classId ?? schedule.class?.id ?? "",
+      subjectId: schedule.subjectId ?? schedule.subject?.id ?? "",
+      teacherId: schedule.teacherId ?? schedule.teacher?.id ?? "",
+      dayOfWeek: schedule.dayOfWeek ?? "Lundi",
+      startTime: schedule.startTime ?? "",
+      endTime: schedule.endTime ?? "",
+    });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  const validateForm = () => {
     if (
       !form.classId ||
       !form.subjectId ||
@@ -189,14 +218,18 @@ export default function SchedulesPage({
       !form.endTime
     ) {
       setError("All schedule fields are required.");
-      return;
+      return false;
     }
 
     if (form.startTime >= form.endTime) {
       setError("End time must be later than start time.");
-      return;
+      return false;
     }
 
+    return true;
+  };
+
+  const handleCreate = async () => {
     try {
       setCreating(true);
       setError("");
@@ -223,20 +256,65 @@ export default function SchedulesPage({
       }
 
       await fetchSchedules();
-
-      setForm({
-        classId: "",
-        subjectId: "",
-        teacherId: "",
-        dayOfWeek: "Lundi",
-        startTime: "",
-        endTime: "",
-      });
+      resetForm();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingScheduleId) return;
+
+    try {
+      setUpdating(true);
+      setError("");
+
+      const response = await fetch(
+        `${apiBaseUrl}/api/schedules/${editingScheduleId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({
+            classId: form.classId,
+            subjectId: form.subjectId,
+            teacherId: form.teacherId,
+            dayOfWeek: form.dayOfWeek,
+            startTime: form.startTime,
+            endTime: form.endTime,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Failed to update schedule.");
+      }
+
+      await fetchSchedules();
+      resetForm();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error.";
+      setError(message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    if (editingScheduleId) {
+      await handleUpdate();
+    } else {
+      await handleCreate();
     }
   };
 
@@ -261,6 +339,10 @@ export default function SchedulesPage({
       }
 
       setSchedules((prev) => prev.filter((item) => item.id !== id));
+
+      if (editingScheduleId === id) {
+        resetForm();
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
@@ -286,12 +368,32 @@ export default function SchedulesPage({
       </header>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold">Create Schedule</h3>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h3 className="text-lg font-semibold">
+            {editingScheduleId ? "Edit Schedule" : "Create Schedule"}
+          </h3>
+
+          {editingScheduleId ? (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Cancel Edit
+            </button>
+          ) : null}
+        </div>
+
+        {error ? (
+          <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
 
         {loadingLookups ? (
           <p>Loading classes, subjects, and teachers...</p>
         ) : (
-          <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Class</label>
               <select
@@ -376,14 +478,30 @@ export default function SchedulesPage({
               />
             </div>
 
-            <div className="md:col-span-2 xl:col-span-3">
+            <div className="md:col-span-2 xl:col-span-3 flex gap-3">
               <button
                 type="submit"
-                disabled={creating}
-                className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                disabled={creating || updating}
+                className="flex-1 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
               >
-                {creating ? "Creating..." : "Create Schedule"}
+                {editingScheduleId
+                  ? updating
+                    ? "Updating..."
+                    : "Update Schedule"
+                  : creating
+                  ? "Creating..."
+                  : "Create Schedule"}
               </button>
+
+              {editingScheduleId ? (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              ) : null}
             </div>
           </form>
         )}
@@ -402,8 +520,6 @@ export default function SchedulesPage({
 
         {loading ? (
           <p>Loading schedules...</p>
-        ) : error ? (
-          <p className="text-red-700">{error}</p>
         ) : schedules.length === 0 ? (
           <p className="text-slate-500">No schedules found.</p>
         ) : (
@@ -443,13 +559,21 @@ export default function SchedulesPage({
                         {item.startTime} - {item.endTime}
                       </td>
                       <td className="px-3 py-3">
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          disabled={deletingId === item.id}
-                          className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
-                        >
-                          {deletingId === item.id ? "Deleting..." : "Delete"}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEdit(item)}
+                            className="rounded-lg border px-3 py-1 text-sm hover:bg-slate-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            disabled={deletingId === item.id}
+                            className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {deletingId === item.id ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
