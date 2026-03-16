@@ -15,8 +15,6 @@ type TabKey =
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://school-erp-api-3l16.onrender.com";
 
-console.log("API_BASE_URL =", API_BASE_URL);
-
 export default function Dashboard() {
   const token = localStorage.getItem("token") || "";
   const role = localStorage.getItem("role") || "";
