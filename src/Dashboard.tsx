@@ -5,6 +5,7 @@ import UsersPage from "./features/users/UsersPage";
 import ClassesPage from "./features/classes/ClassesPage";
 import SubjectsPage from "./features/subjects/SubjectsPage";
 import SchedulesPage from "./features/schedules/SchedulesPage";
+import AttendancePage from "./features/attendance/AttendancePage";
 
 type TabKey =
   | "portal"
@@ -61,7 +62,7 @@ export default function Dashboard() {
         return <SchedulesPage apiBaseUrl={API_BASE_URL} token={token} />;
 
       case "attendance":
-        return <div className="rounded-2xl bg-white p-6 shadow-sm">Attendance page next.</div>;
+        return <AttendancePage apiBaseUrl={API_BASE_URL} token={token} />;
 
       case "grades":
         return <div className="rounded-2xl bg-white p-6 shadow-sm">Grades page next.</div>;
