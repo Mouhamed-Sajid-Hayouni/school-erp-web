@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { apiDelete, apiGet, apiPost, apiPut } from "../../lib/api";
+import LoadingState from "../../components/common/LoadingState";
+import ErrorState from "../../components/common/ErrorState";
+import EmptyState from "../../components/common/EmptyState";
 
 type ClassOption = {
   id: string;
@@ -72,6 +76,15 @@ const INITIAL_FORM = {
   endTime: "",
 };
 
+type SchedulePayload = {
+  classId: string;
+  subjectId: string;
+  teacherId: string;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+};
+
 export default function SchedulesPage({
   apiBaseUrl,
   token,
@@ -92,24 +105,15 @@ export default function SchedulesPage({
 
   const [form, setForm] = useState(INITIAL_FORM);
 
-  const authHeaders = {
-    Authorization: `Bearer ${token}`,
-  };
-
   const fetchSchedules = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/schedules`, {
-        headers: authHeaders,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to load schedules.");
-      }
-
-      const json = await response.json();
+      const json = await apiGet<ScheduleRow[]>(
+        `${apiBaseUrl}/api/schedules`,
+        token
+      );
       setSchedules(Array.isArray(json) ? json : []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
@@ -124,35 +128,10 @@ export default function SchedulesPage({
       setLoadingLookups(true);
       setError("");
 
-      const [classesResponse, subjectsResponse, teachersResponse] =
-        await Promise.all([
-          fetch(`${apiBaseUrl}/api/classes`, {
-            headers: authHeaders,
-          }),
-          fetch(`${apiBaseUrl}/api/subjects`, {
-            headers: authHeaders,
-          }),
-          fetch(`${apiBaseUrl}/api/teachers`, {
-            headers: authHeaders,
-          }),
-        ]);
-
-      if (!classesResponse.ok) {
-        throw new Error("Failed to load classes.");
-      }
-
-      if (!subjectsResponse.ok) {
-        throw new Error("Failed to load subjects.");
-      }
-
-      if (!teachersResponse.ok) {
-        throw new Error("Failed to load teachers.");
-      }
-
       const [classesJson, subjectsJson, teachersJson] = await Promise.all([
-        classesResponse.json(),
-        subjectsResponse.json(),
-        teachersResponse.json(),
+        apiGet<ClassOption[]>(`${apiBaseUrl}/api/classes`, token),
+        apiGet<SubjectOption[]>(`${apiBaseUrl}/api/subjects`, token),
+        apiGet<TeacherOption[]>(`${apiBaseUrl}/api/teachers`, token),
       ]);
 
       setClasses(Array.isArray(classesJson) ? classesJson : []);
@@ -202,10 +181,7 @@ export default function SchedulesPage({
       endTime: schedule.endTime ?? "",
     });
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const validateForm = () => {
@@ -229,31 +205,25 @@ export default function SchedulesPage({
     return true;
   };
 
+  const buildPayload = (): SchedulePayload => ({
+    classId: form.classId,
+    subjectId: form.subjectId,
+    teacherId: form.teacherId,
+    dayOfWeek: form.dayOfWeek,
+    startTime: form.startTime,
+    endTime: form.endTime,
+  });
+
   const handleCreate = async () => {
     try {
       setCreating(true);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/schedules`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders,
-        },
-        body: JSON.stringify({
-          classId: form.classId,
-          subjectId: form.subjectId,
-          teacherId: form.teacherId,
-          dayOfWeek: form.dayOfWeek,
-          startTime: form.startTime,
-          endTime: form.endTime,
-        }),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to create schedule.");
-      }
+      await apiPost<ScheduleRow, SchedulePayload>(
+        `${apiBaseUrl}/api/schedules`,
+        token,
+        buildPayload()
+      );
 
       await fetchSchedules();
       resetForm();
@@ -272,29 +242,11 @@ export default function SchedulesPage({
       setUpdating(true);
       setError("");
 
-      const response = await fetch(
+      await apiPut<ScheduleRow, SchedulePayload>(
         `${apiBaseUrl}/api/schedules/${editingScheduleId}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeaders,
-          },
-          body: JSON.stringify({
-            classId: form.classId,
-            subjectId: form.subjectId,
-            teacherId: form.teacherId,
-            dayOfWeek: form.dayOfWeek,
-            startTime: form.startTime,
-            endTime: form.endTime,
-          }),
-        }
+        token,
+        buildPayload()
       );
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to update schedule.");
-      }
 
       await fetchSchedules();
       resetForm();
@@ -328,16 +280,7 @@ export default function SchedulesPage({
       setDeletingId(id);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/schedules/${id}`, {
-        method: "DELETE",
-        headers: authHeaders,
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to delete schedule.");
-      }
-
+      await apiDelete(`${apiBaseUrl}/api/schedules/${id}`, token);
       setSchedules((prev) => prev.filter((item) => item.id !== id));
 
       if (editingScheduleId === id) {
@@ -384,14 +327,10 @@ export default function SchedulesPage({
           ) : null}
         </div>
 
-        {error ? (
-          <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
+        {error ? <ErrorState message={error} /> : null}
 
         {loadingLookups ? (
-          <p>Loading classes, subjects, and teachers...</p>
+          <LoadingState message="Loading classes, subjects, and teachers..." />
         ) : (
           <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className="space-y-2">
@@ -519,9 +458,11 @@ export default function SchedulesPage({
         </div>
 
         {loading ? (
-          <p>Loading schedules...</p>
+          <LoadingState message="Loading schedules..." />
+        ) : error ? (
+          <ErrorState message={error} />
         ) : schedules.length === 0 ? (
-          <p className="text-slate-500">No schedules found.</p>
+          <EmptyState message="No schedules found." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
