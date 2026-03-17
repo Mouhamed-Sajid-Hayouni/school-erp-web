@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { apiGet } from "../../lib/api";
+import LoadingState from "../../components/common/LoadingState";
+import ErrorState from "../../components/common/ErrorState";
+import EmptyState from "../../components/common/EmptyState";
 
 type PortalSchedule = {
   id: string;
@@ -51,9 +55,11 @@ type ParentPortalResponse = {
 };
 
 type StudentPortalResponse = {
-  schedule?: PortalSchedule[];
+  class?: {
+    name?: string;
+    schedules?: PortalSchedule[];
+  };
   grades?: PortalGrade[];
-  absences?: PortalAttendance[];
   attendances?: PortalAttendance[];
 };
 
@@ -75,22 +81,10 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
         setLoading(true);
         setError("");
 
-        console.log("Fetching:", `${apiBaseUrl}/api/my-portal`);
-
-        const response = await fetch(`${apiBaseUrl}/api/my-portal`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const json = await response.json();
-
-        console.log("my-portal status:", response.status);
-        console.log("my-portal json:", json);
-
-        if (!response.ok) {
-          throw new Error(json?.message || "Failed to load portal data.");
-        }
+        const json = await apiGet<PortalResponse>(
+          `${apiBaseUrl}/api/my-portal`,
+          token
+        );
 
         setData(json);
       } catch (err) {
@@ -105,15 +99,15 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   }, [apiBaseUrl, token]);
 
   if (loading) {
-    return <div className="rounded-2xl bg-white p-6 shadow-sm">Loading portal...</div>;
+    return <LoadingState message="Loading portal..." />;
   }
 
   if (error) {
-    return <div className="rounded-2xl bg-red-50 p-6 text-red-700 shadow-sm">{error}</div>;
+    return <ErrorState message={error} />;
   }
 
   if (!data) {
-    return <div className="rounded-2xl bg-white p-6 shadow-sm">No portal data found.</div>;
+    return <EmptyState message="No portal data found." />;
   }
 
   const isParentResponse = Array.isArray((data as ParentPortalResponse).children);
@@ -121,6 +115,10 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   if (isParentResponse) {
     const parentData = data as ParentPortalResponse;
     const children = parentData.children ?? [];
+
+    if (children.length === 0) {
+      return <EmptyState message="No linked children found for this parent account." />;
+    }
 
     return (
       <div className="space-y-6">
@@ -131,101 +129,97 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
           </p>
         </header>
 
-        {children.length === 0 ? (
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            No linked children found for this parent account.
-          </div>
-        ) : (
-          children.map((child) => {
-            const schedules = child.class?.schedules ?? [];
-            const grades = child.grades ?? [];
-            const attendances = child.attendances ?? [];
-            const fullName = `${child.user?.firstName ?? ""} ${child.user?.lastName ?? ""}`.trim() || "Student";
+        {children.map((child) => {
+          const schedules = child.class?.schedules ?? [];
+          const grades = child.grades ?? [];
+          const attendances = child.attendances ?? [];
+          const fullName =
+            `${child.user?.firstName ?? ""} ${child.user?.lastName ?? ""}`.trim() ||
+            "Student";
 
-            return (
-              <section key={child.id} className="space-y-4 rounded-2xl bg-white p-6 shadow-sm">
+          return (
+            <section key={child.id} className="space-y-4 rounded-2xl bg-white p-6 shadow-sm">
+              <div>
+                <h3 className="text-lg font-semibold">{fullName}</h3>
+                <p className="text-sm text-slate-500">
+                  {child.class?.name ?? "No class assigned"}
+                </p>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-3">
                 <div>
-                  <h3 className="text-lg font-semibold">{fullName}</h3>
-                  <p className="text-sm text-slate-500">
-                    {child.class?.name ?? "No class assigned"}
-                  </p>
-                </div>
-
-                <div className="grid gap-6 lg:grid-cols-3">
-                  <div>
-                    <h4 className="mb-3 text-base font-semibold">Weekly Timetable</h4>
-                    <div className="space-y-3">
-                      {schedules.length === 0 ? (
-                        <p className="text-sm text-slate-500">No timetable available.</p>
-                      ) : (
-                        schedules.map((item) => (
-                          <div key={item.id} className="rounded-xl border p-3">
-                            <p className="font-medium">{item.subject?.name ?? "Subject"}</p>
-                            <p className="text-sm text-slate-500">
-                              {item.dayOfWeek} • {item.startTime} - {item.endTime}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="mb-3 text-base font-semibold">Grades</h4>
-                    <div className="space-y-3">
-                      {grades.length === 0 ? (
-                        <p className="text-sm text-slate-500">No grades available.</p>
-                      ) : (
-                        grades.map((grade) => (
-                          <div key={grade.id} className="rounded-xl border p-3">
-                            <div className="flex items-center justify-between gap-4">
-                              <p className="font-medium">{grade.subject?.name ?? "Subject"}</p>
-                              <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold">
-                                {grade.score}/20
-                              </span>
-                            </div>
-                            <p className="mt-1 text-sm text-slate-500">{grade.examType}</p>
-                            {grade.comments ? (
-                              <p className="mt-2 text-sm text-slate-600">{grade.comments}</p>
-                            ) : null}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="mb-3 text-base font-semibold">Attendances / Absences</h4>
-                    <div className="space-y-3">
-                      {attendances.length === 0 ? (
-                        <p className="text-sm text-slate-500">No attendance records.</p>
-                      ) : (
-                        attendances.map((attendance) => (
-                          <div key={attendance.id} className="rounded-xl border p-3">
-                            <p className="font-medium">
-                              {attendance.schedule?.subject?.name ?? "Subject"}
-                            </p>
-                            <p className="text-sm text-slate-500">
-                              {new Date(attendance.date).toLocaleDateString()} • {attendance.status}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
+                  <h4 className="mb-3 text-base font-semibold">Weekly Timetable</h4>
+                  <div className="space-y-3">
+                    {schedules.length === 0 ? (
+                      <p className="text-sm text-slate-500">No timetable available.</p>
+                    ) : (
+                      schedules.map((item) => (
+                        <div key={item.id} className="rounded-xl border p-3">
+                          <p className="font-medium">{item.subject?.name ?? "Subject"}</p>
+                          <p className="text-sm text-slate-500">
+                            {item.dayOfWeek} • {item.startTime} - {item.endTime}
+                          </p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-              </section>
-            );
-          })
-        )}
+
+                <div>
+                  <h4 className="mb-3 text-base font-semibold">Grades</h4>
+                  <div className="space-y-3">
+                    {grades.length === 0 ? (
+                      <p className="text-sm text-slate-500">No grades available.</p>
+                    ) : (
+                      grades.map((grade) => (
+                        <div key={grade.id} className="rounded-xl border p-3">
+                          <div className="flex items-center justify-between gap-4">
+                            <p className="font-medium">{grade.subject?.name ?? "Subject"}</p>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold">
+                              {grade.score}/20
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-slate-500">{grade.examType}</p>
+                          {grade.comments ? (
+                            <p className="mt-2 text-sm text-slate-600">{grade.comments}</p>
+                          ) : null}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="mb-3 text-base font-semibold">Attendances / Absences</h4>
+                  <div className="space-y-3">
+                    {attendances.length === 0 ? (
+                      <p className="text-sm text-slate-500">No attendance records.</p>
+                    ) : (
+                      attendances.map((attendance) => (
+                        <div key={attendance.id} className="rounded-xl border p-3">
+                          <p className="font-medium">
+                            {attendance.schedule?.subject?.name ?? "Subject"}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            {new Date(attendance.date).toLocaleDateString()} • {attendance.status}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        })}
       </div>
     );
   }
 
   const studentData = data as StudentPortalResponse;
-  const schedule = studentData.schedule ?? [];
+  const schedule = studentData.class?.schedules ?? [];
   const grades = studentData.grades ?? [];
-  const absences = studentData.absences ?? studentData.attendances ?? [];
+  const absences = studentData.attendances ?? [];
 
   return (
     <div className="space-y-6">
