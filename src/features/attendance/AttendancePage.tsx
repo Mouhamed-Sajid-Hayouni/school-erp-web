@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { apiGet, apiPost } from "../../lib/api";
+import LoadingState from "../../components/common/LoadingState";
+import ErrorState from "../../components/common/ErrorState";
+import EmptyState from "../../components/common/EmptyState";
 
 type StudentRow = {
   id: string;
@@ -47,6 +51,13 @@ type AttendancePageProps = {
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE";
 
+type AttendancePayload = {
+  studentId: string;
+  scheduleId: string;
+  status: AttendanceStatus;
+  date: string;
+};
+
 function getTodayLocalDate() {
   const now = new Date();
   const year = now.getFullYear();
@@ -60,8 +71,6 @@ export default function AttendancePage({
   token,
 }: AttendancePageProps) {
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
 
@@ -70,27 +79,16 @@ export default function AttendancePage({
   const [loadingSchedules, setLoadingSchedules] = useState(true);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [saving, setSaving] = useState(false);
+
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
-  const authHeaders = {
-    Authorization: `Bearer ${token}`,
-  };
 
   const fetchSchedules = async () => {
     try {
       setLoadingSchedules(true);
       setError("");
 
-      const response = await fetch(`${apiBaseUrl}/api/schedules`, {
-        headers: authHeaders,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to load schedules.");
-      }
-
-      const json = await response.json();
+      const json = await apiGet<ScheduleRow[]>(`${apiBaseUrl}/api/schedules`, token);
       const list = Array.isArray(json) ? json : [];
       setSchedules(list);
 
@@ -113,22 +111,14 @@ export default function AttendancePage({
       setError("");
       setSuccessMessage("");
 
-      const response = await fetch(
+      const json = await apiGet<AttendanceRecord[]>(
         `${apiBaseUrl}/api/attendance/${scheduleId}?date=${date}`,
-        {
-          headers: authHeaders,
-        }
+        token
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to load attendance records.");
-      }
-
-      const json = await response.json();
       const records = Array.isArray(json) ? json : [];
-      setAttendanceRecords(records);
-
       const nextStatuses: Record<string, AttendanceStatus> = {};
+
       for (const record of records) {
         nextStatuses[record.studentId] = record.status;
       }
@@ -137,7 +127,6 @@ export default function AttendancePage({
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
-      setAttendanceRecords([]);
       setStatuses({});
     } finally {
       setLoadingAttendance(false);
@@ -197,24 +186,16 @@ export default function AttendancePage({
 
       await Promise.all(
         attendanceSheet.map((row) =>
-          fetch(`${apiBaseUrl}/api/attendance`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeaders,
-            },
-            body: JSON.stringify({
+          apiPost<{ message: string }, AttendancePayload>(
+            `${apiBaseUrl}/api/attendance`,
+            token,
+            {
               studentId: row.studentId,
               scheduleId: selectedScheduleId,
               status: row.status,
               date: selectedDate,
-            }),
-          }).then(async (response) => {
-            if (!response.ok) {
-              const text = await response.text();
-              throw new Error(text || "Failed to save attendance.");
             }
-          })
+          )
         )
       );
 
@@ -275,7 +256,7 @@ export default function AttendancePage({
 
           <div className="flex items-end gap-3">
             <button
-              onClick={() => fetchSchedules()}
+              onClick={fetchSchedules}
               className="w-full rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
               Refresh Schedules
@@ -283,11 +264,7 @@ export default function AttendancePage({
           </div>
         </div>
 
-        {error ? (
-          <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
+        {error ? <div className="mt-4"><ErrorState message={error} /></div> : null}
 
         {successMessage ? (
           <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -321,13 +298,13 @@ export default function AttendancePage({
         </div>
 
         {loadingSchedules ? (
-          <p>Loading schedules...</p>
+          <LoadingState message="Loading schedules..." />
         ) : loadingAttendance ? (
-          <p>Loading attendance records...</p>
+          <LoadingState message="Loading attendance records..." />
         ) : !selectedScheduleId ? (
-          <p className="text-slate-500">Please select a schedule.</p>
+          <EmptyState message="Please select a schedule." />
         ) : attendanceSheet.length === 0 ? (
-          <p className="text-slate-500">No students found for the selected schedule.</p>
+          <EmptyState message="No students found for the selected schedule." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
