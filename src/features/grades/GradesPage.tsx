@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { apiGet, apiPost } from "../../lib/api";
+import LoadingState from "../../components/common/LoadingState";
+import ErrorState from "../../components/common/ErrorState";
+import EmptyState from "../../components/common/EmptyState";
 
 type ClassOption = {
   id: string;
@@ -39,6 +43,14 @@ type GradeFormRow = {
   comments: string;
 };
 
+type GradePayload = {
+  studentId: string;
+  subjectId: string;
+  examType: string;
+  score: number;
+  comments: string;
+};
+
 const DEFAULT_EXAM_TYPE = "Devoir de Contrôle N°1";
 
 export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
@@ -59,35 +71,14 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const authHeaders = {
-    Authorization: `Bearer ${token}`,
-  };
-
   const fetchLookups = async () => {
     try {
       setLoadingLookups(true);
       setError("");
 
-      const [classesResponse, subjectsResponse] = await Promise.all([
-        fetch(`${apiBaseUrl}/api/classes`, {
-          headers: authHeaders,
-        }),
-        fetch(`${apiBaseUrl}/api/subjects`, {
-          headers: authHeaders,
-        }),
-      ]);
-
-      if (!classesResponse.ok) {
-        throw new Error("Failed to load classes.");
-      }
-
-      if (!subjectsResponse.ok) {
-        throw new Error("Failed to load subjects.");
-      }
-
       const [classesJson, subjectsJson] = await Promise.all([
-        classesResponse.json(),
-        subjectsResponse.json(),
+        apiGet<ClassOption[]>(`${apiBaseUrl}/api/classes`, token),
+        apiGet<SubjectOption[]>(`${apiBaseUrl}/api/subjects`, token),
       ]);
 
       const classList = Array.isArray(classesJson) ? classesJson : [];
@@ -143,20 +134,12 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       setError("");
       setSuccessMessage("");
 
-      const response = await fetch(
+      const json = await apiGet<StudentRow[]>(
         `${apiBaseUrl}/api/grades/${classId}/${subjectId}`,
-        {
-          headers: authHeaders,
-        }
+        token
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to load grades.");
-      }
-
-      const json = await response.json();
       const studentList = Array.isArray(json) ? json : [];
-
       setStudents(studentList);
       setGradeMap(buildGradeMap(studentList, currentExamType));
     } catch (err) {
@@ -223,10 +206,12 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       const numericScore = Number(scoreText);
 
       if (Number.isNaN(numericScore)) {
-        setError(`Invalid score for ${
-          `${student.user?.firstName ?? ""} ${student.user?.lastName ?? ""}`.trim() ||
-          "student"
-        }.`);
+        setError(
+          `Invalid score for ${
+            `${student.user?.firstName ?? ""} ${student.user?.lastName ?? ""}`.trim() ||
+            "student"
+          }.`
+        );
         return false;
       }
 
@@ -265,25 +250,18 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       await Promise.all(
         filledRows.map((student) => {
           const row = gradeMap[student.id];
-          return fetch(`${apiBaseUrl}/api/grades`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeaders,
-            },
-            body: JSON.stringify({
+
+          return apiPost<{ message: string }, GradePayload>(
+            `${apiBaseUrl}/api/grades`,
+            token,
+            {
               studentId: student.id,
               subjectId: selectedSubjectId,
               examType: examType.trim(),
               score: Number(row.score),
               comments: row.comments.trim(),
-            }),
-          }).then(async (response) => {
-            if (!response.ok) {
-              const text = await response.text();
-              throw new Error(text || "Failed to save grades.");
             }
-          });
+          );
         })
       );
 
@@ -390,11 +368,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
           </p>
         ) : null}
 
-        {error ? (
-          <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
+        {error ? <div className="mt-4"><ErrorState message={error} /></div> : null}
 
         {successMessage ? (
           <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -422,13 +396,13 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
         </div>
 
         {loadingLookups ? (
-          <p>Loading classes and subjects...</p>
+          <LoadingState message="Loading classes and subjects..." />
         ) : loadingGrades ? (
-          <p>Loading grade sheet...</p>
+          <LoadingState message="Loading grade sheet..." />
         ) : !selectedClassId || !selectedSubjectId ? (
-          <p className="text-slate-500">Please select a class and subject.</p>
+          <EmptyState message="Please select a class and subject." />
         ) : rows.length === 0 ? (
-          <p className="text-slate-500">No students found for the selected class.</p>
+          <EmptyState message="No students found for the selected class." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
