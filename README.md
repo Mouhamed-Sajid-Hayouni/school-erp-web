@@ -1,73 +1,85 @@
-# React + TypeScript + Vite
+# School ERP Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Web administration and portal frontend for the School ERP System.
 
-Currently, two official plugins are available:
+## Project Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+This application is the web frontend of an integrated ERP platform for managing a Tunisian public school.
 
-## React Compiler
+It supports:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- admin user management
+- teacher workflows
+- class management
+- subject management
+- schedule management
+- attendance management
+- grade management
+- student portal
+- parent portal
 
-## Expanding the ESLint configuration
+## Project Lead
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+**Mouhamed Sajid Hayouni**
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Tech Stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Router
+- lucide-react
+- jsPDF
+- jspdf-autotable
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Main Features
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Admin / Teacher
+- Create, edit, and delete users
+- Create and delete classes
+- Create and delete subjects
+- Create, edit, and delete schedules
+- Record attendance
+- Record grades
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Student
+- View timetable
+- View grades
+- View absences
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Parent
+- View linked child
+- View child timetable
+- View child grades
+- View child attendance
+
+## Project Structure
+
+```text
+src/
+  components/
+    common/
+      EmptyState.tsx
+      ErrorState.tsx
+      LoadingState.tsx
+    layout/
+      DashboardLayout.tsx
+  features/
+    attendance/
+      AttendancePage.tsx
+    classes/
+      ClassesPage.tsx
+    grades/
+      GradesPage.tsx
+    portal/
+      MyPortalPage.tsx
+    schedules/
+      SchedulesPage.tsx
+    subjects/
+      SubjectsPage.tsx
+    users/
+      UsersPage.tsx
+  lib/
+    api.ts
+  Dashboard.tsx
