@@ -1,20 +1,28 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import Dashboard from './Dashboard'; // Import our new page!
+import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import Dashboard from './Dashboard';
 
-// --- 1. The Login Component ---
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'https://school-erp-api-3l16.onrender.com';
+
 function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const navigate = useNavigate(); // This is our "redirect" tool
+  const navigate = useNavigate();
+
+  const token = localStorage.getItem('token');
+
+  if (token) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     try {
-      const response = await fetch('https://school-erp-api-3l16.onrender.com/api/login', {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -27,14 +35,13 @@ function LoginScreen() {
         return;
       }
 
-      // Save token and role
       localStorage.setItem('token', data.token);
       localStorage.setItem('role', data.role);
-      
-      // Redirect to the Dashboard!
-      navigate('/dashboard');
-      
-    } catch (err) {
+      localStorage.setItem('firstName', data.firstName || '');
+      localStorage.setItem('lastName', data.lastName || '');
+
+      navigate('/dashboard', { replace: true });
+    } catch {
       setError('Cannot connect to server. Is the backend running?');
     }
   };
@@ -55,7 +62,9 @@ function LoginScreen() {
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email Address
+            </label>
             <input
               type="email"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -64,8 +73,11 @@ function LoginScreen() {
               required
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
             <input
               type="password"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -74,7 +86,11 @@ function LoginScreen() {
               required
             />
           </div>
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">
+
+          <button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg"
+          >
             Sign In
           </button>
         </form>
@@ -83,13 +99,23 @@ function LoginScreen() {
   );
 }
 
-// --- 2. The Main App Router ---
+function ProtectedDashboard() {
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Dashboard />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginScreen />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<ProtectedDashboard />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
