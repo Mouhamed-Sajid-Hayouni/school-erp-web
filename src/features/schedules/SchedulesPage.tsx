@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
+import { useToast } from "../../components/common/ToastProvider";
 
 type ClassOption = {
   id: string;
@@ -89,6 +90,8 @@ export default function SchedulesPage({
   apiBaseUrl,
   token,
 }: SchedulesPageProps) {
+  const { showToast } = useToast();
+
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
@@ -105,6 +108,10 @@ export default function SchedulesPage({
 
   const [form, setForm] = useState(INITIAL_FORM);
 
+  const [classFilter, setClassFilter] = useState("ALL");
+  const [subjectFilter, setSubjectFilter] = useState("ALL");
+  const [teacherFilter, setTeacherFilter] = useState("ALL");
+
   const fetchSchedules = async () => {
     try {
       setLoading(true);
@@ -118,6 +125,7 @@ export default function SchedulesPage({
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -140,6 +148,7 @@ export default function SchedulesPage({
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setLoadingLookups(false);
     }
@@ -194,11 +203,13 @@ export default function SchedulesPage({
       !form.endTime
     ) {
       setError("All schedule fields are required.");
+      showToast("All schedule fields are required.", "error");
       return false;
     }
 
     if (form.startTime >= form.endTime) {
       setError("End time must be later than start time.");
+      showToast("End time must be later than start time.", "error");
       return false;
     }
 
@@ -227,9 +238,11 @@ export default function SchedulesPage({
 
       await fetchSchedules();
       resetForm();
+      showToast("Schedule created successfully.", "success");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setCreating(false);
     }
@@ -250,9 +263,11 @@ export default function SchedulesPage({
 
       await fetchSchedules();
       resetForm();
+      showToast("Schedule updated successfully.", "success");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setUpdating(false);
     }
@@ -286,9 +301,12 @@ export default function SchedulesPage({
       if (editingScheduleId === id) {
         resetForm();
       }
+
+      showToast("Schedule deleted successfully.", "success");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setDeletingId(null);
     }
@@ -300,6 +318,27 @@ export default function SchedulesPage({
     const fullName = `${firstName} ${lastName}`.trim();
     return fullName || teacher.user?.email || "Teacher";
   };
+
+  const filteredSchedules = useMemo(() => {
+    return schedules.filter((item) => {
+      const matchesClass =
+        classFilter === "ALL"
+          ? true
+          : (item.classId ?? item.class?.id ?? "") === classFilter;
+
+      const matchesSubject =
+        subjectFilter === "ALL"
+          ? true
+          : (item.subjectId ?? item.subject?.id ?? "") === subjectFilter;
+
+      const matchesTeacher =
+        teacherFilter === "ALL"
+          ? true
+          : (item.teacherId ?? item.teacher?.id ?? "") === teacherFilter;
+
+      return matchesClass && matchesSubject && matchesTeacher;
+    });
+  }, [schedules, classFilter, subjectFilter, teacherFilter]);
 
   return (
     <div className="space-y-6">
@@ -447,22 +486,69 @@ export default function SchedulesPage({
       </section>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <h3 className="text-lg font-semibold">Schedule List</h3>
-          <button
-            onClick={fetchSchedules}
-            className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
-          >
-            Refresh
-          </button>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <select
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+            >
+              <option value="ALL">All classes</option>
+              {classes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={subjectFilter}
+              onChange={(e) => setSubjectFilter(e.target.value)}
+              className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+            >
+              <option value="ALL">All subjects</option>
+              {subjects.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={teacherFilter}
+              onChange={(e) => setTeacherFilter(e.target.value)}
+              className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+            >
+              <option value="ALL">All teachers</option>
+              {teachers.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {teacherLabel(item)}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => {
+                setClassFilter("ALL");
+                setSubjectFilter("ALL");
+                setTeacherFilter("ALL");
+                fetchSchedules();
+              }}
+              className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Reset / Refresh
+            </button>
+          </div>
         </div>
 
         {loading ? (
           <LoadingState message="Loading schedules..." />
         ) : error ? (
           <ErrorState message={error} />
-        ) : schedules.length === 0 ? (
-          <EmptyState message="No schedules found." />
+        ) : filteredSchedules.length === 0 ? (
+          <EmptyState message="No schedules found for the current filters." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
@@ -477,7 +563,7 @@ export default function SchedulesPage({
                 </tr>
               </thead>
               <tbody>
-                {schedules.map((item) => {
+                {filteredSchedules.map((item) => {
                   const teacherName = `${
                     item.teacher?.user?.firstName ?? ""
                   } ${item.teacher?.user?.lastName ?? ""}`.trim();

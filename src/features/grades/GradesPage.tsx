@@ -3,6 +3,7 @@ import { apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
+import { useToast } from "../../components/common/ToastProvider";
 
 type ClassOption = {
   id: string;
@@ -54,6 +55,8 @@ type GradePayload = {
 const DEFAULT_EXAM_TYPE = "Devoir de Contrôle N°1";
 
 export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
+  const { showToast } = useToast();
+
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -70,6 +73,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchLookups = async () => {
     try {
@@ -97,6 +101,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setLoadingLookups(false);
     }
@@ -147,6 +152,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       setError(message);
       setStudents([]);
       setGradeMap({});
+      showToast(message, "error");
     } finally {
       setLoadingGrades(false);
     }
@@ -170,6 +176,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const handleExamTypeLoad = async () => {
     if (!selectedClassId || !selectedSubjectId) {
       setError("Please select a class and subject first.");
+      showToast("Please select a class and subject first.", "error");
       return;
     }
 
@@ -194,6 +201,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const validateRows = () => {
     if (!examType.trim()) {
       setError("Exam type is required.");
+      showToast("Exam type is required.", "error");
       return false;
     }
 
@@ -212,11 +220,13 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
             "student"
           }.`
         );
+        showToast("One or more scores are invalid.", "error");
         return false;
       }
 
       if (numericScore < 0 || numericScore > 20) {
         setError("Scores must be between 0 and 20.");
+        showToast("Scores must be between 0 and 20.", "error");
         return false;
       }
     }
@@ -227,6 +237,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const handleSaveAll = async () => {
     if (!selectedClassId || !selectedSubjectId) {
       setError("Please select a class and subject.");
+      showToast("Please select a class and subject.", "error");
       return;
     }
 
@@ -244,6 +255,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
       if (filledRows.length === 0) {
         setError("Enter at least one score before saving.");
+        showToast("Enter at least one score before saving.", "error");
         return;
       }
 
@@ -266,11 +278,13 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       );
 
       setSuccessMessage("Grades saved successfully.");
+      showToast("Grades saved successfully.", "success");
       await fetchGrades(selectedClassId, selectedSubjectId, examType);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
       setSuccessMessage("");
+      showToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -291,6 +305,54 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       };
     });
   }, [students, gradeMap]);
+
+  const filteredRows = useMemo(() => {
+    const value = searchTerm.trim().toLowerCase();
+
+    return rows.filter((row) => {
+      if (!value) return true;
+
+      return (
+        row.fullName.toLowerCase().includes(value) ||
+        row.email.toLowerCase().includes(value)
+      );
+    });
+  }, [rows, searchTerm]);
+
+  const numericScores = useMemo(() => {
+    return rows
+      .map((row) => Number(row.score))
+      .filter((score) => !Number.isNaN(score) && rowScoreIsFilled(score))
+      .map((score) => Number(score));
+
+    function rowScoreIsFilled(score: number) {
+      return Number.isFinite(score);
+    }
+  }, [rows]);
+
+  const summary = useMemo(() => {
+    const enteredScores = rows
+      .map((row) => row.score.trim())
+      .filter((value) => value !== "")
+      .map((value) => Number(value))
+      .filter((value) => !Number.isNaN(value));
+
+    const totalStudents = rows.length;
+    const enteredCount = enteredScores.length;
+    const average =
+      enteredCount > 0
+        ? enteredScores.reduce((sum, value) => sum + value, 0) / enteredCount
+        : null;
+    const highest =
+      enteredCount > 0 ? Math.max(...enteredScores) : null;
+
+    return {
+      totalStudents,
+      enteredCount,
+      average,
+      highest,
+    };
+  }, [rows]);
 
   return (
     <div className="space-y-6">
@@ -377,8 +439,36 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
         ) : null}
       </section>
 
+      {!loadingGrades && rows.length > 0 ? (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Students</p>
+            <p className="mt-2 text-2xl font-bold">{summary.totalStudents}</p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Grades Entered</p>
+            <p className="mt-2 text-2xl font-bold">{summary.enteredCount}</p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Current Average</p>
+            <p className="mt-2 text-2xl font-bold">
+              {summary.average !== null ? summary.average.toFixed(2) : "-"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Highest Score</p>
+            <p className="mt-2 text-2xl font-bold">
+              {summary.highest !== null ? summary.highest.toFixed(2) : "-"}
+            </p>
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-lg font-semibold">Grade Sheet</h3>
             <p className="text-sm text-slate-500">
@@ -386,13 +476,23 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
             </p>
           </div>
 
-          <button
-            onClick={handleSaveAll}
-            disabled={saving || rows.length === 0}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save Grades"}
-          </button>
+          <div className="flex flex-col gap-3 md:flex-row">
+            <input
+              type="text"
+              placeholder="Search student by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+            />
+
+            <button
+              onClick={handleSaveAll}
+              disabled={saving || rows.length === 0}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Grades"}
+            </button>
+          </div>
         </div>
 
         {loadingLookups ? (
@@ -401,8 +501,8 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
           <LoadingState message="Loading grade sheet..." />
         ) : !selectedClassId || !selectedSubjectId ? (
           <EmptyState message="Please select a class and subject." />
-        ) : rows.length === 0 ? (
-          <EmptyState message="No students found for the selected class." />
+        ) : filteredRows.length === 0 ? (
+          <EmptyState message="No students found for the current search." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
@@ -415,7 +515,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {filteredRows.map((row) => (
                   <tr key={row.studentId} className="border-b last:border-b-0">
                     <td className="px-3 py-3 font-medium">{row.fullName}</td>
                     <td className="px-3 py-3 text-sm text-slate-600">

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiDelete, apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
+import { useToast } from "../../components/common/ToastProvider";
 
 type ClassRow = {
   id: string;
@@ -16,6 +17,8 @@ type ClassesPageProps = {
 };
 
 export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
+  const { showToast } = useToast();
+
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -27,6 +30,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
 
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchClasses = async () => {
     try {
@@ -38,6 +42,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -46,6 +51,18 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
   useEffect(() => {
     fetchClasses();
   }, []);
+
+  const filteredClasses = useMemo(() => {
+    const value = searchTerm.trim().toLowerCase();
+
+    return classes.filter((item) => {
+      if (!value) return true;
+      return (
+        item.name.toLowerCase().includes(value) ||
+        item.academicYear.toLowerCase().includes(value)
+      );
+    });
+  }, [classes, searchTerm]);
 
   const handleChange = (field: "name" | "academicYear", value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -59,6 +76,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
 
     if (!trimmedName || !trimmedAcademicYear) {
       setError("Class name and academic year are required.");
+      showToast("Class name and academic year are required.", "error");
       return;
     }
 
@@ -79,9 +97,11 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
         name: "",
         academicYear: "",
       });
+      showToast("Class created successfully.", "success");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setCreating(false);
     }
@@ -97,9 +117,11 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
 
       await apiDelete(`${apiBaseUrl}/api/classes/${id}`, token);
       setClasses((prev) => prev.filter((item) => item.id !== id));
+      showToast("Class deleted successfully.", "success");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setDeletingId(null);
     }
@@ -153,22 +175,33 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
       </section>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h3 className="text-lg font-semibold">Class List</h3>
-          <button
-            onClick={fetchClasses}
-            className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
-          >
-            Refresh
-          </button>
+
+          <div className="flex flex-col gap-3 md:flex-row">
+            <input
+              type="text"
+              placeholder="Search by class name or academic year..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+            />
+
+            <button
+              onClick={fetchClasses}
+              className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         {loading ? (
           <LoadingState message="Loading classes..." />
         ) : error ? (
           <ErrorState message={error} />
-        ) : classes.length === 0 ? (
-          <EmptyState message="No classes found." />
+        ) : filteredClasses.length === 0 ? (
+          <EmptyState message="No classes found for the current search." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
@@ -180,7 +213,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
                 </tr>
               </thead>
               <tbody>
-                {classes.map((item) => (
+                {filteredClasses.map((item) => (
                   <tr key={item.id} className="border-b last:border-b-0">
                     <td className="px-3 py-3 font-medium">{item.name}</td>
                     <td className="px-3 py-3 text-sm text-slate-600">

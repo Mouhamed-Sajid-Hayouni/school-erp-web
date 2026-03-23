@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiDelete, apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
+import { useToast } from "../../components/common/ToastProvider";
 
 type SubjectRow = {
   id: string;
@@ -16,6 +17,8 @@ type SubjectsPageProps = {
 };
 
 export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
+  const { showToast } = useToast();
+
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -27,6 +30,7 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
 
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchSubjects = async () => {
     try {
@@ -38,6 +42,7 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -46,6 +51,18 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
   useEffect(() => {
     fetchSubjects();
   }, []);
+
+  const filteredSubjects = useMemo(() => {
+    const value = searchTerm.trim().toLowerCase();
+
+    return subjects.filter((item) => {
+      if (!value) return true;
+      return (
+        item.name.toLowerCase().includes(value) ||
+        String(item.coefficient).includes(value)
+      );
+    });
+  }, [subjects, searchTerm]);
 
   const handleChange = (field: "name" | "coefficient", value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -59,11 +76,13 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
 
     if (!trimmedName) {
       setError("Subject name is required.");
+      showToast("Subject name is required.", "error");
       return;
     }
 
     if (Number.isNaN(parsedCoefficient) || parsedCoefficient <= 0) {
       setError("Coefficient must be a number greater than 0.");
+      showToast("Coefficient must be a number greater than 0.", "error");
       return;
     }
 
@@ -84,9 +103,11 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
         name: "",
         coefficient: "1",
       });
+      showToast("Subject created successfully.", "success");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setCreating(false);
     }
@@ -102,9 +123,11 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
 
       await apiDelete(`${apiBaseUrl}/api/subjects/${id}`, token);
       setSubjects((prev) => prev.filter((item) => item.id !== id));
+      showToast("Subject deleted successfully.", "success");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setDeletingId(null);
     }
@@ -160,22 +183,33 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
       </section>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h3 className="text-lg font-semibold">Subject List</h3>
-          <button
-            onClick={fetchSubjects}
-            className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
-          >
-            Refresh
-          </button>
+
+          <div className="flex flex-col gap-3 md:flex-row">
+            <input
+              type="text"
+              placeholder="Search by subject or coefficient..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+            />
+
+            <button
+              onClick={fetchSubjects}
+              className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         {loading ? (
           <LoadingState message="Loading subjects..." />
         ) : error ? (
           <ErrorState message={error} />
-        ) : subjects.length === 0 ? (
-          <EmptyState message="No subjects found." />
+        ) : filteredSubjects.length === 0 ? (
+          <EmptyState message="No subjects found for the current search." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
@@ -187,7 +221,7 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
                 </tr>
               </thead>
               <tbody>
-                {subjects.map((item) => (
+                {filteredSubjects.map((item) => (
                   <tr key={item.id} className="border-b last:border-b-0">
                     <td className="px-3 py-3 font-medium">{item.name}</td>
                     <td className="px-3 py-3 text-sm text-slate-600">

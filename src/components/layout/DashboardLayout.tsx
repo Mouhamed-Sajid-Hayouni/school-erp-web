@@ -20,6 +20,7 @@ type DashboardLayoutProps = {
 };
 
 const adminTeacherTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
+  { key: "overview", label: "Overview" },
   { key: "users", label: "Users", icon: <Users className="h-4 w-4" /> },
   { key: "classes", label: "Classes", icon: <Shield className="h-4 w-4" /> },
   { key: "subjects", label: "Subjects", icon: <BookOpen className="h-4 w-4" /> },

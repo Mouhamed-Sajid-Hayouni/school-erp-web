@@ -3,6 +3,7 @@ import { apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
+import { useToast } from "../../components/common/ToastProvider";
 
 type StudentRow = {
   id: string;
@@ -50,6 +51,7 @@ type AttendancePageProps = {
 };
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE";
+type AttendanceFilter = "ALL" | AttendanceStatus;
 
 type AttendancePayload = {
   studentId: string;
@@ -70,11 +72,14 @@ export default function AttendancePage({
   apiBaseUrl,
   token,
 }: AttendancePageProps) {
+  const { showToast } = useToast();
+
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
 
   const [statuses, setStatuses] = useState<Record<string, AttendanceStatus>>({});
+  const [statusFilter, setStatusFilter] = useState<AttendanceFilter>("ALL");
 
   const [loadingSchedules, setLoadingSchedules] = useState(true);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
@@ -98,6 +103,7 @@ export default function AttendancePage({
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
+      showToast(message, "error");
     } finally {
       setLoadingSchedules(false);
     }
@@ -128,6 +134,7 @@ export default function AttendancePage({
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
       setStatuses({});
+      showToast(message, "error");
     } finally {
       setLoadingAttendance(false);
     }
@@ -161,6 +168,22 @@ export default function AttendancePage({
     }));
   }, [classStudents, statuses]);
 
+  const filteredAttendanceSheet = useMemo(() => {
+    return attendanceSheet.filter((row) => {
+      if (statusFilter === "ALL") return true;
+      return row.status === statusFilter;
+    });
+  }, [attendanceSheet, statusFilter]);
+
+  const summary = useMemo(() => {
+    const total = attendanceSheet.length;
+    const present = attendanceSheet.filter((row) => row.status === "PRESENT").length;
+    const absent = attendanceSheet.filter((row) => row.status === "ABSENT").length;
+    const late = attendanceSheet.filter((row) => row.status === "LATE").length;
+
+    return { total, present, absent, late };
+  }, [attendanceSheet]);
+
   const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
     setStatuses((prev) => ({
       ...prev,
@@ -171,11 +194,13 @@ export default function AttendancePage({
   const handleSaveAll = async () => {
     if (!selectedScheduleId || !selectedDate) {
       setError("Please select a schedule and date.");
+      showToast("Please select a schedule and date.", "error");
       return;
     }
 
     if (attendanceSheet.length === 0) {
       setError("No students found for the selected schedule.");
+      showToast("No students found for the selected schedule.", "error");
       return;
     }
 
@@ -200,11 +225,13 @@ export default function AttendancePage({
       );
 
       setSuccessMessage("Attendance saved successfully.");
+      showToast("Attendance saved successfully.", "success");
       await fetchAttendance(selectedScheduleId, selectedDate);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
       setSuccessMessage("");
+      showToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -273,8 +300,32 @@ export default function AttendancePage({
         ) : null}
       </section>
 
+      {!loadingAttendance && attendanceSheet.length > 0 ? (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Total Students</p>
+            <p className="mt-2 text-2xl font-bold">{summary.total}</p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Present</p>
+            <p className="mt-2 text-2xl font-bold">{summary.present}</p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Absent</p>
+            <p className="mt-2 text-2xl font-bold">{summary.absent}</p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Late</p>
+            <p className="mt-2 text-2xl font-bold">{summary.late}</p>
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-lg font-semibold">Attendance Sheet</h3>
             {selectedSchedule ? (
@@ -288,13 +339,26 @@ export default function AttendancePage({
             )}
           </div>
 
-          <button
-            onClick={handleSaveAll}
-            disabled={saving || !selectedScheduleId || attendanceSheet.length === 0}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save Attendance"}
-          </button>
+          <div className="flex flex-col gap-3 md:flex-row">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as AttendanceFilter)}
+              className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+            >
+              <option value="ALL">All statuses</option>
+              <option value="PRESENT">Present</option>
+              <option value="ABSENT">Absent</option>
+              <option value="LATE">Late</option>
+            </select>
+
+            <button
+              onClick={handleSaveAll}
+              disabled={saving || !selectedScheduleId || attendanceSheet.length === 0}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Attendance"}
+            </button>
+          </div>
         </div>
 
         {loadingSchedules ? (
@@ -305,6 +369,8 @@ export default function AttendancePage({
           <EmptyState message="Please select a schedule." />
         ) : attendanceSheet.length === 0 ? (
           <EmptyState message="No students found for the selected schedule." />
+        ) : filteredAttendanceSheet.length === 0 ? (
+          <EmptyState message="No students found for the current status filter." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
@@ -316,7 +382,7 @@ export default function AttendancePage({
                 </tr>
               </thead>
               <tbody>
-                {attendanceSheet.map((row) => (
+                {filteredAttendanceSheet.map((row) => (
                   <tr key={row.studentId} className="border-b last:border-b-0">
                     <td className="px-3 py-3 font-medium">{row.fullName}</td>
                     <td className="px-3 py-3 text-sm text-slate-600">

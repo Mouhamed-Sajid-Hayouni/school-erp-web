@@ -7,8 +7,10 @@ import SubjectsPage from "./features/subjects/SubjectsPage";
 import SchedulesPage from "./features/schedules/SchedulesPage";
 import AttendancePage from "./features/attendance/AttendancePage";
 import GradesPage from "./features/grades/GradesPage";
+import OverviewPage from "./features/overview/OverviewPage";
 
 type TabKey =
+  | "overview"
   | "portal"
   | "users"
   | "classes"
@@ -27,7 +29,7 @@ export default function Dashboard() {
   const lastName = localStorage.getItem("lastName") || "";
 
   const defaultTab: TabKey =
-    role === "STUDENT" || role === "PARENT" ? "portal" : "users";
+  role === "STUDENT" || role === "PARENT" ? "portal" : "overview";
 
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
 
@@ -50,6 +52,15 @@ export default function Dashboard() {
     }
 
     switch (activeTab) {
+      case "overview":
+        return (
+        <OverviewPage
+        apiBaseUrl={API_BASE_URL}
+        token={token}
+        onNavigate={(tab) => setActiveTab(tab)}
+        />
+      );
+      
       case "users":
         return <UsersPage apiBaseUrl={API_BASE_URL} token={token} />;
 
