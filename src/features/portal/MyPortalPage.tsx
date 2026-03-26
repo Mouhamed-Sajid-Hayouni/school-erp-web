@@ -4,6 +4,8 @@ import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
 
+type GradePeriod = "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
+
 type PortalSchedule = {
   id: string;
   dayOfWeek: string;
@@ -15,6 +17,7 @@ type PortalSchedule = {
 type PortalGrade = {
   id: string;
   examType: string;
+  period?: GradePeriod;
   score: number;
   comments?: string | null;
   subject?: { name: string; coefficient?: number };
@@ -55,6 +58,11 @@ type ParentPortalResponse = {
 };
 
 type StudentPortalResponse = {
+  id?: string;
+  user?: {
+    firstName?: string;
+    lastName?: string;
+  };
   class?: {
     name?: string;
     schedules?: PortalSchedule[];
@@ -65,80 +73,74 @@ type StudentPortalResponse = {
 
 type PortalResponse = ParentPortalResponse | StudentPortalResponse;
 
+type StudentSummaryResponse = {
+  student: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  class: {
+    id: string;
+    name: string;
+    academicYear: string;
+  } | null;
+  period: GradePeriod;
+  gradesCount: number;
+  bestScore: number | null;
+  generalAverage: number | null;
+  coefficientSum: number;
+  subjects: {
+    subjectId: string;
+    subjectName: string;
+    coefficient: number;
+    gradesCount: number;
+    average: number;
+  }[];
+};
+
 type MyPortalPageProps = {
   apiBaseUrl: string;
   token: string;
 };
 
-type SubjectAverage = {
-  subjectName: string;
-  average: number;
-  count: number;
-};
-
-function computeSubjectAverages(grades: PortalGrade[]): SubjectAverage[] {
-  const grouped = new Map<string, number[]>();
-
-  for (const grade of grades) {
-    const subjectName = grade.subject?.name ?? "Unknown Subject";
-    const current = grouped.get(subjectName) ?? [];
-    current.push(grade.score);
-    grouped.set(subjectName, current);
-  }
-
-  return [...grouped.entries()]
-    .map(([subjectName, scores]) => ({
-      subjectName,
-      average: scores.reduce((sum, value) => sum + value, 0) / scores.length,
-      count: scores.length,
-    }))
-    .sort((a, b) => b.average - a.average);
-}
-
-function computeSummary(grades: PortalGrade[], attendances: PortalAttendance[]) {
-  const scores = grades.map((grade) => grade.score);
-  const average =
-    scores.length > 0
-      ? scores.reduce((sum, value) => sum + value, 0) / scores.length
-      : null;
-
-  const bestScore = scores.length > 0 ? Math.max(...scores) : null;
-  const absences = attendances.filter((item) => item.status === "ABSENT").length;
-
-  return {
-    gradesCount: grades.length,
-    average,
-    bestScore,
-    absences,
-    subjectAverages: computeSubjectAverages(grades),
-  };
-}
+const PERIOD_OPTIONS: { value: GradePeriod; label: string }[] = [
+  { value: "TRIMESTER_1", label: "Trimester 1" },
+  { value: "TRIMESTER_2", label: "Trimester 2" },
+  { value: "TRIMESTER_3", label: "Trimester 3" },
+];
 
 function SummaryCards({
-  grades,
+  summary,
   attendances,
 }: {
-  grades: PortalGrade[];
+  summary: StudentSummaryResponse | null;
   attendances: PortalAttendance[];
 }) {
-  const summary = computeSummary(grades, attendances);
+  const absences = attendances.filter((item) => item.status === "ABSENT").length;
 
   const cards = [
     {
-      label: "General Average",
-      value: summary.average !== null ? summary.average.toFixed(2) : "-",
+      label: "Weighted Average",
+      value:
+        summary?.generalAverage !== null && summary?.generalAverage !== undefined
+          ? summary.generalAverage.toFixed(2)
+          : "-",
     },
     {
       label: "Best Score",
-      value: summary.bestScore !== null ? `${summary.bestScore.toFixed(2)}/20` : "-",
+      value:
+        summary?.bestScore !== null && summary?.bestScore !== undefined
+          ? `${summary.bestScore.toFixed(2)}/20`
+          : "-",
     },
     {
       label: "Grades Count",
-      value: String(summary.gradesCount),
+      value: String(summary?.gradesCount ?? 0),
     },
     {
-      label: "Absences",
-      value: String(summary.absences),
+      label: "Total Absences",
+      value: String(absences),
     },
   ];
 
@@ -154,19 +156,25 @@ function SummaryCards({
   );
 }
 
-function SubjectAverageSection({ grades }: { grades: PortalGrade[] }) {
-  const subjectAverages = useMemo(() => computeSubjectAverages(grades), [grades]);
-
+function SubjectAverageSection({
+  summary,
+  loading,
+}: {
+  summary: StudentSummaryResponse | null;
+  loading: boolean;
+}) {
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-lg font-semibold">Subject Averages</h3>
 
-      {subjectAverages.length === 0 ? (
-        <p className="text-sm text-slate-500">No subject averages available yet.</p>
+      {loading ? (
+        <LoadingState message="Loading weighted academic summary..." />
+      ) : !summary || summary.subjects.length === 0 ? (
+        <p className="text-sm text-slate-500">No subject averages available for this period.</p>
       ) : (
         <div className="space-y-3">
-          {subjectAverages.map((item) => (
-            <div key={item.subjectName} className="rounded-xl border p-3">
+          {summary.subjects.map((item) => (
+            <div key={item.subjectId} className="rounded-xl border p-3">
               <div className="flex items-center justify-between gap-4">
                 <p className="font-medium">{item.subjectName}</p>
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold">
@@ -174,7 +182,8 @@ function SubjectAverageSection({ grades }: { grades: PortalGrade[] }) {
                 </span>
               </div>
               <p className="mt-1 text-sm text-slate-500">
-                Based on {item.count} grade{item.count > 1 ? "s" : ""}
+                Coefficient {item.coefficient} • Based on {item.gradesCount} grade
+                {item.gradesCount > 1 ? "s" : ""}
               </p>
             </div>
           ))}
@@ -206,15 +215,25 @@ function TimetableSection({ schedule }: { schedule: PortalSchedule[] }) {
   );
 }
 
-function GradesSection({ grades }: { grades: PortalGrade[] }) {
+function GradesSection({
+  grades,
+  period,
+}: {
+  grades: PortalGrade[];
+  period: GradePeriod;
+}) {
+  const filteredGrades = grades.filter(
+    (grade) => (grade.period ?? "TRIMESTER_1") === period
+  );
+
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-lg font-semibold">Grades</h3>
       <div className="space-y-3">
-        {grades.length === 0 ? (
-          <p className="text-sm text-slate-500">No grades available.</p>
+        {filteredGrades.length === 0 ? (
+          <p className="text-sm text-slate-500">No grades available for this period.</p>
         ) : (
-          grades.map((grade) => (
+          filteredGrades.map((grade) => (
             <div key={grade.id} className="rounded-xl border p-3">
               <div className="flex items-center justify-between gap-4">
                 <p className="font-medium">{grade.subject?.name ?? "Subject"}</p>
@@ -269,17 +288,25 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [period, setPeriod] = useState<GradePeriod>("TRIMESTER_1");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [studentSummary, setStudentSummary] = useState<StudentSummaryResponse | null>(null);
+  const [childSummaries, setChildSummaries] = useState<Record<string, StudentSummaryResponse>>(
+    {}
+  );
+
+  const isParentResponse = useMemo(
+    () => !!data && Array.isArray((data as ParentPortalResponse).children),
+    [data]
+  );
+
   useEffect(() => {
     const fetchPortal = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const json = await apiGet<PortalResponse>(
-          `${apiBaseUrl}/api/my-portal`,
-          token
-        );
-
+        const json = await apiGet<PortalResponse>(`${apiBaseUrl}/api/my-portal`, token);
         setData(json);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unexpected error.";
@@ -291,6 +318,58 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
     fetchPortal();
   }, [apiBaseUrl, token]);
+
+  useEffect(() => {
+    const fetchSummaries = async () => {
+      if (!data) return;
+
+      try {
+        setSummaryLoading(true);
+
+        if (isParentResponse) {
+          const parentData = data as ParentPortalResponse;
+          const children = parentData.children ?? [];
+
+          const responses = await Promise.all(
+            children.map((child) =>
+              apiGet<StudentSummaryResponse>(
+                `${apiBaseUrl}/api/student-summary/${child.id}?period=${period}`,
+                token
+              )
+            )
+          );
+
+          const nextMap: Record<string, StudentSummaryResponse> = {};
+          children.forEach((child, index) => {
+            nextMap[child.id] = responses[index];
+          });
+
+          setChildSummaries(nextMap);
+        } else {
+          const studentData = data as StudentPortalResponse;
+
+          if (!studentData.id) {
+            setStudentSummary(null);
+            return;
+          }
+
+          const response = await apiGet<StudentSummaryResponse>(
+            `${apiBaseUrl}/api/student-summary/${studentData.id}?period=${period}`,
+            token
+          );
+
+          setStudentSummary(response);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load academic summary.";
+        setError(message);
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+
+    fetchSummaries();
+  }, [data, isParentResponse, apiBaseUrl, token, period]);
 
   if (loading) {
     return <LoadingState message="Loading portal..." />;
@@ -304,8 +383,6 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
     return <EmptyState message="No portal data found." />;
   }
 
-  const isParentResponse = Array.isArray((data as ParentPortalResponse).children);
-
   if (isParentResponse) {
     const parentData = data as ParentPortalResponse;
     const children = parentData.children ?? [];
@@ -316,11 +393,28 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
     return (
       <div className="space-y-6">
-        <header>
-          <h2 className="text-2xl font-bold">Parent Portal</h2>
-          <p className="text-sm text-slate-500">
-            View your children’s timetable, grades, and attendance summary.
-          </p>
+        <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Parent Portal</h2>
+            <p className="text-sm text-slate-500">
+              View your children’s timetable, weighted averages, grades, and attendance.
+            </p>
+          </div>
+
+          <div className="w-full md:w-56">
+            <label className="mb-2 block text-sm font-medium text-slate-700">Period</label>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as GradePeriod)}
+              className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+            >
+              {PERIOD_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </header>
 
         {children.map((child) => {
@@ -331,6 +425,8 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
             `${child.user?.firstName ?? ""} ${child.user?.lastName ?? ""}`.trim() ||
             "Student";
 
+          const summary = childSummaries[child.id] ?? null;
+
           return (
             <section key={child.id} className="space-y-6">
               <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -340,15 +436,15 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
                 </p>
               </div>
 
-              <SummaryCards grades={grades} attendances={attendances} />
+              <SummaryCards summary={summary} attendances={attendances} />
 
               <div className="grid gap-6 xl:grid-cols-2">
-                <SubjectAverageSection grades={grades} />
+                <SubjectAverageSection summary={summary} loading={summaryLoading} />
                 <TimetableSection schedule={schedule} />
               </div>
 
               <div className="grid gap-6 xl:grid-cols-2">
-                <GradesSection grades={grades} />
+                <GradesSection grades={grades} period={period} />
                 <AttendanceSection attendances={attendances} />
               </div>
             </section>
@@ -365,22 +461,39 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h2 className="text-2xl font-bold">My Portal</h2>
-        <p className="text-sm text-slate-500">
-          Your timetable, grades, averages, and absences.
-        </p>
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">My Portal</h2>
+          <p className="text-sm text-slate-500">
+            Your weighted academic summary, timetable, grades, and absences.
+          </p>
+        </div>
+
+        <div className="w-full md:w-56">
+          <label className="mb-2 block text-sm font-medium text-slate-700">Period</label>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as GradePeriod)}
+            className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+          >
+            {PERIOD_OPTIONS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </header>
 
-      <SummaryCards grades={grades} attendances={attendances} />
+      <SummaryCards summary={studentSummary} attendances={attendances} />
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <SubjectAverageSection grades={grades} />
+        <SubjectAverageSection summary={studentSummary} loading={summaryLoading} />
         <TimetableSection schedule={schedule} />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <GradesSection grades={grades} />
+        <GradesSection grades={grades} period={period} />
         <AttendanceSection attendances={attendances} title="Absences" />
       </div>
     </div>
