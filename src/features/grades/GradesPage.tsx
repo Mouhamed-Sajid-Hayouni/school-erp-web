@@ -20,6 +20,7 @@ type SubjectOption = {
 type GradeRow = {
   id: string;
   examType: string;
+  period?: "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
   score: number;
   comments?: string | null;
 };
@@ -48,11 +49,21 @@ type GradePayload = {
   studentId: string;
   subjectId: string;
   examType: string;
+  period: GradePeriod;
   score: number;
   comments: string;
 };
 
+type GradePeriod = "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
+
 const DEFAULT_EXAM_TYPE = "Devoir de Contrôle N°1";
+const DEFAULT_PERIOD: GradePeriod = "TRIMESTER_1";
+
+const PERIOD_OPTIONS: { value: GradePeriod; label: string }[] = [
+  { value: "TRIMESTER_1", label: "Trimester 1" },
+  { value: "TRIMESTER_2", label: "Trimester 2" },
+  { value: "TRIMESTER_3", label: "Trimester 3" },
+];
 
 export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const { showToast } = useToast();
@@ -64,6 +75,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [examType, setExamType] = useState(DEFAULT_EXAM_TYPE);
+  const [period, setPeriod] = useState<GradePeriod>(DEFAULT_PERIOD);
 
   const [gradeMap, setGradeMap] = useState<Record<string, GradeFormRow>>({});
 
@@ -107,7 +119,10 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
     }
   };
 
-  const buildGradeMap = (studentList: StudentRow[], currentExamType: string) => {
+  const buildGradeMap = (
+    studentList: StudentRow[],
+    currentExamType: string
+  ): Record<string, GradeFormRow> => {
     const nextMap: Record<string, GradeFormRow> = {};
 
     for (const student of studentList) {
@@ -130,7 +145,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const fetchGrades = async (
     classId: string,
     subjectId: string,
-    currentExamType: string
+    currentPeriod: GradePeriod
   ) => {
     if (!classId || !subjectId) return;
 
@@ -140,13 +155,12 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       setSuccessMessage("");
 
       const json = await apiGet<StudentRow[]>(
-        `${apiBaseUrl}/api/grades/${classId}/${subjectId}`,
+        `${apiBaseUrl}/api/grades/${classId}/${subjectId}?period=${currentPeriod}`,
         token
       );
 
       const studentList = Array.isArray(json) ? json : [];
       setStudents(studentList);
-      setGradeMap(buildGradeMap(studentList, currentExamType));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
@@ -164,23 +178,27 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
   useEffect(() => {
     if (selectedClassId && selectedSubjectId) {
-      fetchGrades(selectedClassId, selectedSubjectId, examType);
+      fetchGrades(selectedClassId, selectedSubjectId, period);
     }
-  }, [selectedClassId, selectedSubjectId]);
+  }, [selectedClassId, selectedSubjectId, period]);
+
+  useEffect(() => {
+    setGradeMap(buildGradeMap(students, examType));
+  }, [students, examType]);
 
   const selectedSubject = useMemo(
     () => subjects.find((item) => item.id === selectedSubjectId) ?? null,
     [subjects, selectedSubjectId]
   );
 
-  const handleExamTypeLoad = async () => {
+  const handleReloadGrades = async () => {
     if (!selectedClassId || !selectedSubjectId) {
       setError("Please select a class and subject first.");
       showToast("Please select a class and subject first.", "error");
       return;
     }
 
-    await fetchGrades(selectedClassId, selectedSubjectId, examType);
+    await fetchGrades(selectedClassId, selectedSubjectId, period);
   };
 
   const handleRowChange = (
@@ -270,6 +288,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
               studentId: student.id,
               subjectId: selectedSubjectId,
               examType: examType.trim(),
+              period,
               score: Number(row.score),
               comments: row.comments.trim(),
             }
@@ -279,7 +298,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
       setSuccessMessage("Grades saved successfully.");
       showToast("Grades saved successfully.", "success");
-      await fetchGrades(selectedClassId, selectedSubjectId, examType);
+      await fetchGrades(selectedClassId, selectedSubjectId, period);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
@@ -319,17 +338,6 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
     });
   }, [rows, searchTerm]);
 
-  const numericScores = useMemo(() => {
-    return rows
-      .map((row) => Number(row.score))
-      .filter((score) => !Number.isNaN(score) && rowScoreIsFilled(score))
-      .map((score) => Number(score));
-
-    function rowScoreIsFilled(score: number) {
-      return Number.isFinite(score);
-    }
-  }, [rows]);
-
   const summary = useMemo(() => {
     const enteredScores = rows
       .map((row) => row.score.trim())
@@ -343,8 +351,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       enteredCount > 0
         ? enteredScores.reduce((sum, value) => sum + value, 0) / enteredCount
         : null;
-    const highest =
-      enteredCount > 0 ? Math.max(...enteredScores) : null;
+    const highest = enteredCount > 0 ? Math.max(...enteredScores) : null;
 
     return {
       totalStudents,
@@ -359,12 +366,12 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       <header>
         <h2 className="text-2xl font-bold">Grades</h2>
         <p className="text-sm text-slate-500">
-          Select a class, subject, and exam type, then enter grades for each student.
+          Select a class, subject, period, and exam type, then enter grades for each student.
         </p>
       </header>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Class</label>
             <select
@@ -404,6 +411,21 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
           </div>
 
           <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Period</label>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as GradePeriod)}
+              className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+            >
+              {PERIOD_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Exam Type</label>
             <input
               type="text"
@@ -416,7 +438,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
           <div className="flex items-end gap-3">
             <button
-              onClick={handleExamTypeLoad}
+              onClick={handleReloadGrades}
               className="w-full rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
               Load Grades
@@ -472,6 +494,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
           <div>
             <h3 className="text-lg font-semibold">Grade Sheet</h3>
             <p className="text-sm text-slate-500">
+              {(PERIOD_OPTIONS.find((item) => item.value === period)?.label ?? period)} •{" "}
               {examType.trim() || "No exam type selected"}
             </p>
           </div>
