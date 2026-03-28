@@ -445,24 +445,36 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
           return (
             <section key={child.id ?? fullName} className="space-y-6">
               <div className="rounded-2xl bg-white p-6 shadow-sm">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold">{fullName}</h3>
-                    <p className="text-sm text-slate-500">
-                      {child.class?.name ?? "No class assigned"}
-                    </p>
-                  </div>
+  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h3 className="text-lg font-semibold">{fullName}</h3>
+      <p className="text-sm text-slate-500">
+        {child.class?.name ?? "No class assigned"}
+      </p>
+    </div>
 
-                  {targetStudentId ? (
-  <button
-    onClick={() => handleExportBulletin(targetStudentId)}
-    className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-  >
-    Export Bulletin PDF
-  </button>
-) : null}
-                </div>
-              </div>
+    <button
+      onClick={() => {
+        if (!targetStudentId) return;
+        handleExportBulletin(targetStudentId);
+      }}
+      disabled={!targetStudentId}
+      className={`rounded-xl px-4 py-2 text-sm font-medium text-white ${
+        targetStudentId
+          ? "bg-slate-900 hover:bg-slate-800"
+          : "bg-slate-300 cursor-not-allowed"
+      }`}
+    >
+      Export Bulletin PDF
+    </button>
+  </div>
+
+  {!targetStudentId ? (
+    <p className="mt-3 text-xs text-amber-600">
+      Student ID not resolved yet for PDF export.
+    </p>
+  ) : null}
+</div>
 
               <SummaryCards summary={summary} attendances={attendances} />
 
