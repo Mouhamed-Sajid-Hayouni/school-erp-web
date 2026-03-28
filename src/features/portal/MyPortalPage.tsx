@@ -3,15 +3,18 @@ import { apiGet } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
-
-type GradePeriod = "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
+import {
+  exportBulletinPdf,
+  type StudentBulletinResponse,
+  type GradePeriod,
+} from "./exportBulletinPdf";
 
 type PortalSchedule = {
   id: string;
   dayOfWeek: string;
   startTime: string;
   endTime: string;
-  subject?: { name: string; coefficient?: number };
+  subject?: { name?: string; coefficient?: number };
 };
 
 type PortalGrade = {
@@ -20,7 +23,7 @@ type PortalGrade = {
   period?: GradePeriod;
   score: number;
   comments?: string | null;
-  subject?: { name: string; coefficient?: number };
+  subject?: { name?: string; coefficient?: number };
   createdAt?: string;
 };
 
@@ -30,21 +33,23 @@ type PortalAttendance = {
   status: string;
   remarks?: string | null;
   schedule?: {
-    subject?: { name: string };
+    subject?: { name?: string };
     dayOfWeek?: string;
     startTime?: string;
     endTime?: string;
   };
 };
 
-type ParentChild = {
-  id: string;
+type StudentPortalShape = {
+  id?: string;
   user?: {
     firstName?: string;
     lastName?: string;
+    email?: string;
   };
   class?: {
     name?: string;
+    academicYear?: string;
     schedules?: PortalSchedule[];
   };
   grades?: PortalGrade[];
@@ -54,50 +59,10 @@ type ParentChild = {
 type ParentPortalResponse = {
   id: string;
   userId: string;
-  children?: ParentChild[];
+  children?: StudentPortalShape[];
 };
 
-type StudentPortalResponse = {
-  id?: string;
-  user?: {
-    firstName?: string;
-    lastName?: string;
-  };
-  class?: {
-    name?: string;
-    schedules?: PortalSchedule[];
-  };
-  grades?: PortalGrade[];
-  attendances?: PortalAttendance[];
-};
-
-type PortalResponse = ParentPortalResponse | StudentPortalResponse;
-
-type StudentSummaryResponse = {
-  student: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
-  class: {
-    id: string;
-    name: string;
-    academicYear: string;
-  } | null;
-  period: GradePeriod;
-  gradesCount: number;
-  bestScore: number | null;
-  generalAverage: number | null;
-  coefficientSum: number;
-  subjects: {
-    subjectId: string;
-    subjectName: string;
-    coefficient: number;
-    gradesCount: number;
-    average: number;
-  }[];
-};
+type PortalResponse = StudentPortalShape | ParentPortalResponse;
 
 type MyPortalPageProps = {
   apiBaseUrl: string;
@@ -114,7 +79,7 @@ function SummaryCards({
   summary,
   attendances,
 }: {
-  summary: StudentSummaryResponse | null;
+  summary: StudentBulletinResponse | null;
   attendances: PortalAttendance[];
 }) {
   const absences = attendances.filter((item) => item.status === "ABSENT").length;
@@ -160,7 +125,7 @@ function SubjectAverageSection({
   summary,
   loading,
 }: {
-  summary: StudentSummaryResponse | null;
+  summary: StudentBulletinResponse | null;
   loading: boolean;
 }) {
   return (
@@ -170,7 +135,9 @@ function SubjectAverageSection({
       {loading ? (
         <LoadingState message="Loading weighted academic summary..." />
       ) : !summary || summary.subjects.length === 0 ? (
-        <p className="text-sm text-slate-500">No subject averages available for this period.</p>
+        <p className="text-sm text-slate-500">
+          No subject averages available for this period.
+        </p>
       ) : (
         <div className="space-y-3">
           {summary.subjects.map((item) => (
@@ -197,6 +164,7 @@ function TimetableSection({ schedule }: { schedule: PortalSchedule[] }) {
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-lg font-semibold">Weekly Timetable</h3>
+
       <div className="space-y-3">
         {schedule.length === 0 ? (
           <p className="text-sm text-slate-500">No timetable available.</p>
@@ -229,9 +197,12 @@ function GradesSection({
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-lg font-semibold">Grades</h3>
+
       <div className="space-y-3">
         {filteredGrades.length === 0 ? (
-          <p className="text-sm text-slate-500">No grades available for this period.</p>
+          <p className="text-sm text-slate-500">
+            No grades available for this period.
+          </p>
         ) : (
           filteredGrades.map((grade) => (
             <div key={grade.id} className="rounded-xl border p-3">
@@ -263,6 +234,7 @@ function AttendanceSection({
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-lg font-semibold">{title}</h3>
+
       <div className="space-y-3">
         {attendances.length === 0 ? (
           <p className="text-sm text-slate-500">No attendance records.</p>
@@ -273,7 +245,8 @@ function AttendanceSection({
                 {attendance.schedule?.subject?.name ?? "Subject"}
               </p>
               <p className="text-sm text-slate-500">
-                {new Date(attendance.date).toLocaleDateString()} • {attendance.status}
+                {new Date(attendance.date).toLocaleDateString()} •{" "}
+                {attendance.status}
               </p>
             </div>
           ))
@@ -286,14 +259,17 @@ function AttendanceSection({
 export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   const [data, setData] = useState<PortalResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [portalError, setPortalError] = useState("");
 
   const [period, setPeriod] = useState<GradePeriod>("TRIMESTER_1");
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [studentSummary, setStudentSummary] = useState<StudentSummaryResponse | null>(null);
-  const [childSummaries, setChildSummaries] = useState<Record<string, StudentSummaryResponse>>(
-    {}
-  );
+  const [summaryError, setSummaryError] = useState("");
+
+  const [studentSummary, setStudentSummary] =
+    useState<StudentBulletinResponse | null>(null);
+  const [childSummaries, setChildSummaries] = useState<
+    Record<string, StudentBulletinResponse>
+  >({});
 
   const isParentResponse = useMemo(
     () => !!data && Array.isArray((data as ParentPortalResponse).children),
@@ -304,13 +280,17 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
     const fetchPortal = async () => {
       try {
         setLoading(true);
-        setError("");
+        setPortalError("");
 
-        const json = await apiGet<PortalResponse>(`${apiBaseUrl}/api/my-portal`, token);
+        const json = await apiGet<PortalResponse>(
+          `${apiBaseUrl}/api/my-portal`,
+          token
+        );
+
         setData(json);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unexpected error.";
-        setError(message);
+        setPortalError(message);
       } finally {
         setLoading(false);
       }
@@ -325,35 +305,44 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
       try {
         setSummaryLoading(true);
+        setSummaryError("");
 
         if (isParentResponse) {
           const parentData = data as ParentPortalResponse;
           const children = parentData.children ?? [];
 
-          const responses = await Promise.all(
+          const settled = await Promise.allSettled(
             children.map((child) =>
-              apiGet<StudentSummaryResponse>(
+              apiGet<StudentBulletinResponse>(
                 `${apiBaseUrl}/api/student-summary/${child.id}?period=${period}`,
                 token
               )
             )
           );
 
-          const nextMap: Record<string, StudentSummaryResponse> = {};
+          const nextMap: Record<string, StudentBulletinResponse> = {};
+
           children.forEach((child, index) => {
-            nextMap[child.id] = responses[index];
+            const result = settled[index];
+            if (result.status === "fulfilled") {
+              nextMap[child.id!] = result.value;
+            }
           });
 
           setChildSummaries(nextMap);
+
+          if (settled.some((item) => item.status === "rejected")) {
+            setSummaryError("Some weighted summaries could not be loaded.");
+          }
         } else {
-          const studentData = data as StudentPortalResponse;
+          const studentData = data as StudentPortalShape;
 
           if (!studentData.id) {
             setStudentSummary(null);
             return;
           }
 
-          const response = await apiGet<StudentSummaryResponse>(
+          const response = await apiGet<StudentBulletinResponse>(
             `${apiBaseUrl}/api/student-summary/${studentData.id}?period=${period}`,
             token
           );
@@ -361,8 +350,9 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
           setStudentSummary(response);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to load academic summary.";
-        setError(message);
+        const message =
+          err instanceof Error ? err.message : "Failed to load academic summary.";
+        setSummaryError(message);
       } finally {
         setSummaryLoading(false);
       }
@@ -371,12 +361,27 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
     fetchSummaries();
   }, [data, isParentResponse, apiBaseUrl, token, period]);
 
+  const handleExportBulletin = async (studentId: string) => {
+    try {
+      const bulletin = await apiGet<StudentBulletinResponse>(
+        `${apiBaseUrl}/api/student-bulletin/${studentId}?period=${period}`,
+        token
+      );
+
+      exportBulletinPdf(bulletin);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to export bulletin PDF.";
+      setSummaryError(message);
+    }
+  };
+
   if (loading) {
     return <LoadingState message="Loading portal..." />;
   }
 
-  if (error) {
-    return <ErrorState message={error} />;
+  if (portalError) {
+    return <ErrorState message={portalError} />;
   }
 
   if (!data) {
@@ -402,7 +407,9 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
           </div>
 
           <div className="w-full md:w-56">
-            <label className="mb-2 block text-sm font-medium text-slate-700">Period</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Period
+            </label>
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value as GradePeriod)}
@@ -417,6 +424,12 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
           </div>
         </header>
 
+        {summaryError ? (
+          <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            {summaryError}
+          </div>
+        ) : null}
+
         {children.map((child) => {
           const schedule = child.class?.schedules ?? [];
           const grades = child.grades ?? [];
@@ -425,15 +438,28 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
             `${child.user?.firstName ?? ""} ${child.user?.lastName ?? ""}`.trim() ||
             "Student";
 
-          const summary = childSummaries[child.id] ?? null;
+          const summary = child.id ? childSummaries[child.id] ?? null : null;
 
           return (
-            <section key={child.id} className="space-y-6">
+            <section key={child.id ?? fullName} className="space-y-6">
               <div className="rounded-2xl bg-white p-6 shadow-sm">
-                <h3 className="text-lg font-semibold">{fullName}</h3>
-                <p className="text-sm text-slate-500">
-                  {child.class?.name ?? "No class assigned"}
-                </p>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">{fullName}</h3>
+                    <p className="text-sm text-slate-500">
+                      {child.class?.name ?? "No class assigned"}
+                    </p>
+                  </div>
+
+                  {child.id ? (
+                    <button
+                      onClick={() => handleExportBulletin(child.id!)}
+                      className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                    >
+                      Export Bulletin PDF
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               <SummaryCards summary={summary} attendances={attendances} />
@@ -454,7 +480,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
     );
   }
 
-  const studentData = data as StudentPortalResponse;
+  const studentData = data as StudentPortalShape;
   const schedule = studentData.class?.schedules ?? [];
   const grades = studentData.grades ?? [];
   const attendances = studentData.attendances ?? [];
@@ -469,21 +495,40 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
           </p>
         </div>
 
-        <div className="w-full md:w-56">
-          <label className="mb-2 block text-sm font-medium text-slate-700">Period</label>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as GradePeriod)}
-            className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-          >
-            {PERIOD_OPTIONS.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+        <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-end">
+          <div className="w-full md:w-56">
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Period
+            </label>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as GradePeriod)}
+              className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+            >
+              {PERIOD_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {studentData.id ? (
+            <button
+              onClick={() => handleExportBulletin(studentData.id!)}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              Export Bulletin PDF
+            </button>
+          ) : null}
         </div>
       </header>
+
+      {summaryError ? (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {summaryError}
+        </div>
+      ) : null}
 
       <SummaryCards summary={studentSummary} attendances={attendances} />
 
