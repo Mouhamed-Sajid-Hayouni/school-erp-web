@@ -440,6 +440,8 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
           const summary = child.id ? childSummaries[child.id] ?? null : null;
 
+          const targetStudentId = child.id ?? summary?.student.id ?? "";
+
           return (
             <section key={child.id ?? fullName} className="space-y-6">
               <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -451,14 +453,14 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
                     </p>
                   </div>
 
-                  {child.id ? (
-                    <button
-                      onClick={() => handleExportBulletin(child.id!)}
-                      className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-                    >
-                      Export Bulletin PDF
-                    </button>
-                  ) : null}
+                  {targetStudentId ? (
+  <button
+    onClick={() => handleExportBulletin(targetStudentId)}
+    className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+  >
+    Export Bulletin PDF
+  </button>
+) : null}
                 </div>
               </div>
 
