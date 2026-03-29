@@ -1,6 +1,3 @@
-import jsPDF from "jspdf";
-import amiriFontUrl from "../../assets/fonts/Amiri-Regular.ttf?url";
-
 export type GradePeriod = "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
 
 export type StudentBulletinResponse = {
@@ -36,207 +33,173 @@ const periodLabelMap: Record<GradePeriod, string> = {
   TRIMESTER_3: "Trimester 3",
 };
 
-const ARABIC_FONT_FAMILY = "AmiriCustom";
-const ARABIC_FONT_FILE = "Amiri-Regular.ttf";
-
-let cachedBase64Font: string | null = null;
-
-function containsArabic(value: string): boolean {
-  return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(
-    value
-  );
-}
-
-function toBase64(arrayBuffer: ArrayBuffer): string {
-  let binary = "";
-  const bytes = new Uint8Array(arrayBuffer);
-  const chunkSize = 0x8000;
-
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-
-  return btoa(binary);
-}
-
-async function getArabicFontBase64() {
-  if (cachedBase64Font) return cachedBase64Font;
-
-  const response = await fetch(amiriFontUrl);
-  if (!response.ok) {
-    throw new Error("Failed to load Arabic PDF font.");
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  cachedBase64Font = toBase64(arrayBuffer);
-  return cachedBase64Font;
-}
-
-async function ensureArabicFont(doc: jsPDF) {
-  const base64Font = await getArabicFontBase64();
-  doc.addFileToVFS(ARABIC_FONT_FILE, base64Font);
-  doc.addFont(ARABIC_FONT_FILE, ARABIC_FONT_FAMILY, "normal");
-}
-
-function shapeText(doc: jsPDF, value: string): string {
-  if (!value) return value;
-  return containsArabic(value) ? doc.processArabic(value) : value;
-}
-
-function drawLabelValue(
-  doc: jsPDF,
-  label: string,
-  value: string,
-  x: number,
-  y: number
-) {
-  doc.setFont("helvetica", "normal");
-  doc.text(label, x, y);
-
-  if (containsArabic(value)) {
-    doc.setFont(ARABIC_FONT_FAMILY, "normal");
-    doc.text(shapeText(doc, value), 195, y, { align: "right" });
-    doc.setFont("helvetica", "normal");
-  } else {
-    doc.text(value, x + 40, y);
-  }
-}
-
-function drawCellText(
-  doc: jsPDF,
-  value: string,
-  x: number,
-  y: number,
-  width: number,
-  align: "left" | "center" | "right" = "left"
-) {
-  if (containsArabic(value)) {
-    doc.setFont(ARABIC_FONT_FAMILY, "normal");
-    doc.text(shapeText(doc, value), x + width - 2, y, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    return;
-  }
-
-  if (align === "center") {
-    doc.text(value, x + width / 2, y, { align: "center" });
-    return;
-  }
-
-  if (align === "right") {
-    doc.text(value, x + width - 2, y, { align: "right" });
-    return;
-  }
-
-  doc.text(value, x + 2, y);
-}
-
-function drawTable(doc: jsPDF, subjects: StudentBulletinResponse["subjects"], startY: number) {
-  const pageWidth = 210;
-  const margin = 14;
-  const tableWidth = pageWidth - margin * 2;
-
-  const col1 = 95; // Subject
-  const col2 = 28; // Coefficient
-  const col3 = 32; // Grades Count
-  const col4 = tableWidth - col1 - col2 - col3; // Average
-
-  const rowHeight = 10;
-
-  let y = startY;
-
-  const drawRowBorders = (yPos: number) => {
-    doc.rect(margin, yPos, col1, rowHeight);
-    doc.rect(margin + col1, yPos, col2, rowHeight);
-    doc.rect(margin + col1 + col2, yPos, col3, rowHeight);
-    doc.rect(margin + col1 + col2 + col3, yPos, col4, rowHeight);
-  };
-
-  doc.setFont("helvetica", "bold");
-  drawRowBorders(y);
-
-  drawCellText(doc, "Subject", margin, y + 6.5, col1, "left");
-  drawCellText(doc, "Coefficient", margin + col1, y + 6.5, col2, "center");
-  drawCellText(doc, "Grades Count", margin + col1 + col2, y + 6.5, col3, "center");
-  drawCellText(doc, "Average / 20", margin + col1 + col2 + col3, y + 6.5, col4, "center");
-
-  y += rowHeight;
-  doc.setFont("helvetica", "normal");
-
-  for (const subject of subjects) {
-    if (y > 260) {
-      doc.addPage();
-      y = 20;
-
-      doc.setFont("helvetica", "bold");
-      drawRowBorders(y);
-      drawCellText(doc, "Subject", margin, y + 6.5, col1, "left");
-      drawCellText(doc, "Coefficient", margin + col1, y + 6.5, col2, "center");
-      drawCellText(doc, "Grades Count", margin + col1 + col2, y + 6.5, col3, "center");
-      drawCellText(doc, "Average / 20", margin + col1 + col2 + col3, y + 6.5, col4, "center");
-      y += rowHeight;
-      doc.setFont("helvetica", "normal");
-    }
-
-    drawRowBorders(y);
-
-    drawCellText(doc, subject.subjectName, margin, y + 6.5, col1, "left");
-    drawCellText(doc, String(subject.coefficient), margin + col1, y + 6.5, col2, "center");
-    drawCellText(doc, String(subject.gradesCount), margin + col1 + col2, y + 6.5, col3, "center");
-    drawCellText(doc, subject.average.toFixed(2), margin + col1 + col2 + col3, y + 6.5, col4, "center");
-
-    y += rowHeight;
-  }
-
-  return y;
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 export async function exportBulletinPdf(data: StudentBulletinResponse) {
-  const doc = new jsPDF();
-
-  await ensureArabicFont(doc);
-
   const fullName = `${data.student.firstName} ${data.student.lastName}`.trim();
   const periodLabel = periodLabelMap[data.period] ?? data.period;
-  const className = data.class?.name ?? "-";
-  const academicYear = data.class?.academicYear ?? "-";
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text("School Bulletin", 14, 18);
+  const rowsHtml = data.subjects
+    .map(
+      (subject) => `
+        <tr>
+          <td class="rtl-cell">${escapeHtml(subject.subjectName)}</td>
+          <td>${subject.coefficient}</td>
+          <td>${subject.gradesCount}</td>
+          <td>${subject.average.toFixed(2)}</td>
+        </tr>
+      `
+    )
+    .join("");
 
-  doc.setFontSize(11);
+  const html = `
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Bulletin - ${escapeHtml(fullName)}</title>
+        <style>
+          @page {
+            size: A4;
+            margin: 18mm;
+          }
 
-  drawLabelValue(doc, "Student:", fullName, 14, 30);
-  drawLabelValue(doc, "Email:", data.student.email, 14, 37);
-  drawLabelValue(doc, "Class:", className, 14, 44);
-  drawLabelValue(doc, "Academic Year:", academicYear, 14, 51);
-  drawLabelValue(doc, "Period:", periodLabel, 14, 58);
+          body {
+            font-family: Arial, "Segoe UI", Tahoma, sans-serif;
+            color: #111827;
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+          }
 
-  const finalY = drawTable(doc, data.subjects, 68);
+          .page {
+            width: 100%;
+          }
 
-  const summaryY = finalY + 14;
+          h1 {
+            margin: 0 0 20px 0;
+            font-size: 26px;
+          }
 
-  doc.setFont("helvetica", "normal");
-  doc.text(
-    `Weighted Average: ${
-      data.generalAverage !== null ? data.generalAverage.toFixed(2) : "-"
-    }`,
-    14,
-    summaryY
-  );
+          .meta {
+            margin-bottom: 18px;
+            line-height: 1.8;
+            font-size: 14px;
+          }
 
-  doc.text(
-    `Best Score: ${
-      data.bestScore !== null ? `${data.bestScore.toFixed(2)}/20` : "-"
-    }`,
-    14,
-    summaryY + 7
-  );
+          .label {
+            font-weight: 700;
+            display: inline-block;
+            min-width: 120px;
+          }
 
-  doc.text(`Grades Count: ${data.gradesCount}`, 14, summaryY + 14);
-  doc.text(`Coefficient Sum: ${data.coefficientSum}`, 14, summaryY + 21);
-  doc.text(`Absences Count: ${data.absencesCount}`, 14, summaryY + 28);
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 18px;
+            font-size: 14px;
+          }
 
-  doc.save(`bulletin-${fullName.replace(/\s+/g, "-")}-${data.period}.pdf`);
+          th, td {
+            border: 1px solid #cbd5e1;
+            padding: 10px 12px;
+            text-align: left;
+            vertical-align: middle;
+          }
+
+          th {
+            background: #f8fafc;
+            font-weight: 700;
+          }
+
+          .rtl-cell {
+            direction: rtl;
+            unicode-bidi: plaintext;
+            text-align: right;
+            font-family: Arial, "Segoe UI", Tahoma, sans-serif;
+          }
+
+          .summary {
+            margin-top: 24px;
+            line-height: 1.9;
+            font-size: 14px;
+          }
+
+          .summary-item strong {
+            display: inline-block;
+            min-width: 150px;
+          }
+
+          @media print {
+            body {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="page">
+          <h1>School Bulletin</h1>
+
+          <div class="meta">
+            <div><span class="label">Student:</span> ${escapeHtml(fullName)}</div>
+            <div><span class="label">Email:</span> ${escapeHtml(data.student.email)}</div>
+            <div><span class="label">Class:</span> <span class="rtl-cell">${escapeHtml(data.class?.name ?? "-")}</span></div>
+            <div><span class="label">Academic Year:</span> ${escapeHtml(data.class?.academicYear ?? "-")}</div>
+            <div><span class="label">Period:</span> ${escapeHtml(periodLabel)}</div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Coefficient</th>
+                <th>Grades Count</th>
+                <th>Average / 20</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div class="summary">
+            <div class="summary-item"><strong>Weighted Average:</strong> ${
+              data.generalAverage !== null ? data.generalAverage.toFixed(2) : "-"
+            }</div>
+            <div class="summary-item"><strong>Best Score:</strong> ${
+              data.bestScore !== null ? `${data.bestScore.toFixed(2)}/20` : "-"
+            }</div>
+            <div class="summary-item"><strong>Grades Count:</strong> ${data.gradesCount}</div>
+            <div class="summary-item"><strong>Coefficient Sum:</strong> ${data.coefficientSum}</div>
+            <div class="summary-item"><strong>Absences Count:</strong> ${data.absencesCount}</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = () => {
+            window.print();
+          };
+        </script>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank", "width=900,height=700");
+
+  if (!printWindow) {
+    throw new Error("Popup blocked. Please allow popups to export the bulletin.");
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
 }

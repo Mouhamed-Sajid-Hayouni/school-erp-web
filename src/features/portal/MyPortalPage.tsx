@@ -368,7 +368,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
         token
       );
 
-      exportBulletinPdf(bulletin);
+      await exportBulletinPdf(bulletin);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to export bulletin PDF.";
