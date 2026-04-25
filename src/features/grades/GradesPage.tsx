@@ -35,6 +35,24 @@ type StudentRow = {
   grades?: GradeRow[];
 };
 
+type TeacherScheduleRow = {
+  id: string;
+  class?: {
+    id: string;
+    name: string;
+    academicYear?: string;
+  };
+  subject?: {
+    id: string;
+    name: string;
+    coefficient?: number;
+  };
+};
+
+type TeacherOverviewResponse = {
+  schedules: TeacherScheduleRow[];
+};
+
 type GradesPageProps = {
   apiBaseUrl: string;
   token: string;
@@ -54,6 +72,10 @@ type GradePayload = {
   comments: string;
 };
 
+type BulletinNotifyPayload = {
+  period: GradePeriod;
+};
+
 type GradePeriod = "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
 
 const DEFAULT_EXAM_TYPE = "Devoir de Contrôle N°1";
@@ -65,11 +87,39 @@ const PERIOD_OPTIONS: { value: GradePeriod; label: string }[] = [
   { value: "TRIMESTER_3", label: "Trimester 3" },
 ];
 
+async function notifyBulletin(
+  apiBaseUrl: string,
+  token: string,
+  studentId: string,
+  period: GradePeriod
+) {
+  return apiPost<{ message: string }, BulletinNotifyPayload>(
+    `${apiBaseUrl}/api/notify-bulletin/${studentId}`,
+    token,
+    { period }
+  );
+}
+
+function uniqueById<T extends { id: string }>(items: T[]) {
+  const map = new Map<string, T>();
+  for (const item of items) {
+    if (!map.has(item.id)) {
+      map.set(item.id, item);
+    }
+  }
+  return Array.from(map.values());
+}
+
 export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const { showToast } = useToast();
 
+  const role =
+    typeof window !== "undefined" ? localStorage.getItem("role") || "" : "";
+  const isTeacher = role === "TEACHER";
+
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [teacherSchedules, setTeacherSchedules] = useState<TeacherScheduleRow[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
 
   const [selectedClassId, setSelectedClassId] = useState("");
@@ -82,34 +132,69 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const [loadingLookups, setLoadingLookups] = useState(true);
   const [loadingGrades, setLoadingGrades] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [notifyingStudentId, setNotifyingStudentId] = useState<string | null>(null);
 
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+
+  const teacherClasses = useMemo(() => {
+    return uniqueById(
+      teacherSchedules
+        .map((item) => item.class)
+        .filter(Boolean) as ClassOption[]
+    );
+  }, [teacherSchedules]);
+
+  const teacherSubjects = useMemo(() => {
+    const filteredSchedules = selectedClassId
+      ? teacherSchedules.filter((item) => item.class?.id === selectedClassId)
+      : teacherSchedules;
+
+    return uniqueById(
+      filteredSchedules
+        .map((item) => item.subject)
+        .filter(Boolean)
+        .map((subject) => ({
+          id: subject!.id,
+          name: subject!.name,
+          coefficient: subject!.coefficient,
+        })) as SubjectOption[]
+    );
+  }, [teacherSchedules, selectedClassId]);
+
+  const visibleClasses = isTeacher ? teacherClasses : classes;
+  const visibleSubjects = isTeacher ? teacherSubjects : subjects;
 
   const fetchLookups = async () => {
     try {
       setLoadingLookups(true);
       setError("");
 
+      if (isTeacher) {
+        const teacherOverview = await apiGet<TeacherOverviewResponse>(
+          `${apiBaseUrl}/api/my-teacher-overview`,
+          token
+        );
+
+        const scheduleList = Array.isArray(teacherOverview?.schedules)
+          ? teacherOverview.schedules
+          : [];
+
+        setTeacherSchedules(scheduleList);
+        setClasses([]);
+        setSubjects([]);
+        return;
+      }
+
       const [classesJson, subjectsJson] = await Promise.all([
         apiGet<ClassOption[]>(`${apiBaseUrl}/api/classes`, token),
         apiGet<SubjectOption[]>(`${apiBaseUrl}/api/subjects`, token),
       ]);
 
-      const classList = Array.isArray(classesJson) ? classesJson : [];
-      const subjectList = Array.isArray(subjectsJson) ? subjectsJson : [];
-
-      setClasses(classList);
-      setSubjects(subjectList);
-
-      if (!selectedClassId && classList.length > 0) {
-        setSelectedClassId(classList[0].id);
-      }
-
-      if (!selectedSubjectId && subjectList.length > 0) {
-        setSelectedSubjectId(subjectList[0].id);
-      }
+      setClasses(Array.isArray(classesJson) ? classesJson : []);
+      setSubjects(Array.isArray(subjectsJson) ? subjectsJson : []);
+      setTeacherSchedules([]);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
@@ -177,6 +262,33 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   }, []);
 
   useEffect(() => {
+    if (visibleClasses.length === 0) return;
+
+    const classStillValid = visibleClasses.some(
+      (item) => item.id === selectedClassId
+    );
+
+    if (!selectedClassId || !classStillValid) {
+      setSelectedClassId(visibleClasses[0].id);
+    }
+  }, [visibleClasses, selectedClassId]);
+
+  useEffect(() => {
+    if (visibleSubjects.length === 0) {
+      setSelectedSubjectId("");
+      return;
+    }
+
+    const subjectStillValid = visibleSubjects.some(
+      (item) => item.id === selectedSubjectId
+    );
+
+    if (!selectedSubjectId || !subjectStillValid) {
+      setSelectedSubjectId(visibleSubjects[0].id);
+    }
+  }, [visibleSubjects, selectedSubjectId]);
+
+  useEffect(() => {
     if (selectedClassId && selectedSubjectId) {
       fetchGrades(selectedClassId, selectedSubjectId, period);
     }
@@ -187,8 +299,8 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   }, [students, examType]);
 
   const selectedSubject = useMemo(
-    () => subjects.find((item) => item.id === selectedSubjectId) ?? null,
-    [subjects, selectedSubjectId]
+    () => visibleSubjects.find((item) => item.id === selectedSubjectId) ?? null,
+    [visibleSubjects, selectedSubjectId]
   );
 
   const handleReloadGrades = async () => {
@@ -309,6 +421,27 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
     }
   };
 
+  const handleNotifyBulletin = async (studentId: string) => {
+    try {
+      setNotifyingStudentId(studentId);
+      setError("");
+      setSuccessMessage("");
+
+      await notifyBulletin(apiBaseUrl, token, studentId, period);
+
+      setSuccessMessage("Bulletin notification sent successfully.");
+      showToast("Bulletin notification sent successfully.", "success");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to send bulletin notification.";
+      setError(message);
+      setSuccessMessage("");
+      showToast(message, "error");
+    } finally {
+      setNotifyingStudentId(null);
+    }
+  };
+
   const rows = useMemo(() => {
     return students.map((student) => {
       const fullName =
@@ -364,9 +497,13 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-2xl font-bold">Grades</h2>
+        <h2 className="text-2xl font-bold">
+          {isTeacher ? "My Grades" : "Grades"}
+        </h2>
         <p className="text-sm text-slate-500">
-          Select a class, subject, period, and exam type, then enter grades for each student.
+          {isTeacher
+            ? "Select one of your classes and subjects, then enter grades for your students."
+            : "Select a class, subject, period, and exam type, then enter grades for each student."}
         </p>
       </header>
 
@@ -381,7 +518,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
               disabled={loadingLookups}
             >
               <option value="">Select a class</option>
-              {classes.map((item) => (
+              {visibleClasses.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
                   {item.academicYear ? ` (${item.academicYear})` : ""}
@@ -399,7 +536,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
               disabled={loadingLookups}
             >
               <option value="">Select a subject</option>
-              {subjects.map((item) => (
+              {visibleSubjects.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
                   {typeof item.coefficient === "number"
@@ -452,7 +589,11 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
           </p>
         ) : null}
 
-        {error ? <div className="mt-4"><ErrorState message={error} /></div> : null}
+        {error ? (
+          <div className="mt-4">
+            <ErrorState message={error} />
+          </div>
+        ) : null}
 
         {successMessage ? (
           <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -535,6 +676,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
                   <th className="px-3 py-3 font-medium">Email</th>
                   <th className="px-3 py-3 font-medium">Score / 20</th>
                   <th className="px-3 py-3 font-medium">Comments</th>
+                  <th className="px-3 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -568,6 +710,15 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
                         placeholder="Optional comment"
                         className="w-full min-w-[220px] rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
                       />
+                    </td>
+                    <td className="px-3 py-3">
+                      <button
+                        onClick={() => handleNotifyBulletin(row.studentId)}
+                        disabled={notifyingStudentId === row.studentId}
+                        className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                      >
+                        {notifyingStudentId === row.studentId ? "Sending..." : "Notify Bulletin"}
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -1,14 +1,32 @@
 import type { ReactNode } from "react";
-import { LogOut, Shield, User, Users, BookOpen, CalendarDays, ClipboardCheck, GraduationCap } from "lucide-react";
+import {
+  LogOut,
+  Shield,
+  User,
+  Users,
+  BookOpen,
+  CalendarDays,
+  ClipboardCheck,
+  GraduationCap,
+  LayoutDashboard,
+  FileText,
+  Megaphone,
+  BarChart3,
+} from "lucide-react";
+import NotificationsBell from "../common/NotificationsBell";
 
 type TabKey =
+  | "overview"
   | "portal"
   | "users"
   | "classes"
   | "subjects"
   | "schedules"
   | "attendance"
-  | "grades";
+  | "grades"
+  | "assignments"
+  | "announcements"
+  | "reports";
 
 type DashboardLayoutProps = {
   activeTab: TabKey;
@@ -16,17 +34,31 @@ type DashboardLayoutProps = {
   onLogout: () => void;
   role: string;
   fullName: string;
+  apiBaseUrl: string;
+  token: string;
   children: ReactNode;
 };
 
-const adminTeacherTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
-  { key: "overview", label: "Overview" },
+const adminTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
+  { key: "overview", label: "Overview", icon: <LayoutDashboard className="h-4 w-4" /> },
   { key: "users", label: "Users", icon: <Users className="h-4 w-4" /> },
   { key: "classes", label: "Classes", icon: <Shield className="h-4 w-4" /> },
   { key: "subjects", label: "Subjects", icon: <BookOpen className="h-4 w-4" /> },
   { key: "schedules", label: "Schedules", icon: <CalendarDays className="h-4 w-4" /> },
   { key: "attendance", label: "Attendance", icon: <ClipboardCheck className="h-4 w-4" /> },
   { key: "grades", label: "Grades", icon: <GraduationCap className="h-4 w-4" /> },
+  { key: "assignments", label: "Assignments", icon: <FileText className="h-4 w-4" /> },
+  { key: "announcements", label: "Announcements", icon: <Megaphone className="h-4 w-4" /> },
+  { key: "reports", label: "Reports", icon: <BarChart3 className="h-4 w-4" /> },
+];
+
+const teacherTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
+  { key: "overview", label: "Overview", icon: <LayoutDashboard className="h-4 w-4" /> },
+  { key: "schedules", label: "My Schedule", icon: <CalendarDays className="h-4 w-4" /> },
+  { key: "attendance", label: "Attendance", icon: <ClipboardCheck className="h-4 w-4" /> },
+  { key: "grades", label: "Grades", icon: <GraduationCap className="h-4 w-4" /> },
+  { key: "assignments", label: "Assignments", icon: <FileText className="h-4 w-4" /> },
+  { key: "announcements", label: "Announcements", icon: <Megaphone className="h-4 w-4" /> },
 ];
 
 export default function DashboardLayout({
@@ -35,9 +67,21 @@ export default function DashboardLayout({
   onLogout,
   role,
   fullName,
+  apiBaseUrl,
+  token,
   children,
 }: DashboardLayoutProps) {
   const isPortalOnly = role === "STUDENT" || role === "PARENT";
+  const isTeacher = role === "TEACHER";
+
+  const initials = fullName
+  .split(" ")
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((part) => part[0]?.toUpperCase() ?? "")
+  .join("") || "U";
+
+  const visibleTabs = isTeacher ? teacherTabs : adminTabs;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -50,14 +94,18 @@ export default function DashboardLayout({
 
           <div className="border-b p-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-slate-100 p-2">
-                <User className="h-5 w-5" />
-              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+  {initials}
+</div>
               <div>
                 <p className="font-medium">{fullName}</p>
                 <p className="text-sm text-slate-500">{role}</p>
               </div>
             </div>
+          </div>
+
+          <div className="border-b p-4">
+            <NotificationsBell apiBaseUrl={apiBaseUrl} token={token} />
           </div>
 
           <nav className="p-4">
@@ -75,7 +123,7 @@ export default function DashboardLayout({
                   My Portal
                 </button>
               ) : (
-                adminTeacherTabs.map((tab) => (
+                visibleTabs.map((tab) => (
                   <button
                     key={tab.key}
                     onClick={() => onTabChange(tab.key)}

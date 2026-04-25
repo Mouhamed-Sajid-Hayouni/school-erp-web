@@ -8,6 +8,10 @@ import SchedulesPage from "./features/schedules/SchedulesPage";
 import AttendancePage from "./features/attendance/AttendancePage";
 import GradesPage from "./features/grades/GradesPage";
 import OverviewPage from "./features/overview/OverviewPage";
+import TeacherOverviewPage from "./features/overview/TeacherOverviewPage";
+import AssignmentsPage from "./features/assignments/AssignmentsPage";
+import AnnouncementsPage from "./features/announcements/AnnouncementsPage";
+import ReportsPage from "./features/reports/ReportsPage";
 
 type TabKey =
   | "overview"
@@ -17,10 +21,13 @@ type TabKey =
   | "subjects"
   | "schedules"
   | "attendance"
-  | "grades";
+  | "grades"
+  | "assignments"
+  | "announcements"
+  | "reports";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://school-erp-api-3l16.onrender.com";
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 export default function Dashboard() {
   const token = localStorage.getItem("token") || "";
@@ -29,7 +36,7 @@ export default function Dashboard() {
   const lastName = localStorage.getItem("lastName") || "";
 
   const defaultTab: TabKey =
-  role === "STUDENT" || role === "PARENT" ? "portal" : "overview";
+    role === "STUDENT" || role === "PARENT" ? "portal" : "overview";
 
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
 
@@ -37,6 +44,10 @@ export default function Dashboard() {
     const value = `${firstName} ${lastName}`.trim();
     return value || "User";
   }, [firstName, lastName]);
+
+  const isStudentOrParent = role === "STUDENT" || role === "PARENT";
+  const isTeacher = role === "TEACHER";
+  const isAdmin = role === "ADMIN";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -46,29 +57,55 @@ export default function Dashboard() {
     window.location.reload();
   };
 
+  const renderOverview = () => {
+    if (isTeacher) {
+      return (
+        <TeacherOverviewPage
+          apiBaseUrl={API_BASE_URL}
+          token={token}
+          onNavigate={(tab) => setActiveTab(tab)}
+        />
+      );
+    }
+
+    return (
+      <OverviewPage
+        apiBaseUrl={API_BASE_URL}
+        token={token}
+        onNavigate={(tab) => setActiveTab(tab)}
+      />
+    );
+  };
+
   const renderContent = () => {
-    if (role === "STUDENT" || role === "PARENT") {
+    if (isStudentOrParent) {
       return <MyPortalPage apiBaseUrl={API_BASE_URL} token={token} />;
     }
 
     switch (activeTab) {
       case "overview":
-        return (
-        <OverviewPage
-        apiBaseUrl={API_BASE_URL}
-        token={token}
-        onNavigate={(tab) => setActiveTab(tab)}
-        />
-      );
-      
+        return renderOverview();
+
       case "users":
-        return <UsersPage apiBaseUrl={API_BASE_URL} token={token} />;
+        return isAdmin ? (
+          <UsersPage apiBaseUrl={API_BASE_URL} token={token} />
+        ) : (
+          renderOverview()
+        );
 
       case "classes":
-        return <ClassesPage apiBaseUrl={API_BASE_URL} token={token} />;
+        return isAdmin ? (
+          <ClassesPage apiBaseUrl={API_BASE_URL} token={token} />
+        ) : (
+          renderOverview()
+        );
 
       case "subjects":
-        return <SubjectsPage apiBaseUrl={API_BASE_URL} token={token} />;
+        return isAdmin ? (
+          <SubjectsPage apiBaseUrl={API_BASE_URL} token={token} />
+        ) : (
+          renderOverview()
+        );
 
       case "schedules":
         return <SchedulesPage apiBaseUrl={API_BASE_URL} token={token} />;
@@ -79,8 +116,21 @@ export default function Dashboard() {
       case "grades":
         return <GradesPage apiBaseUrl={API_BASE_URL} token={token} />;
 
+      case "assignments":
+        return <AssignmentsPage apiBaseUrl={API_BASE_URL} token={token} />;
+
+      case "announcements":
+        return <AnnouncementsPage apiBaseUrl={API_BASE_URL} token={token} />;
+
+      case "reports":
+        return isAdmin ? (
+          <ReportsPage />
+        ) : (
+        renderOverview()
+        );
+
       default:
-        return <UsersPage apiBaseUrl={API_BASE_URL} token={token} />;
+        return renderOverview();
     }
   };
 
@@ -91,6 +141,8 @@ export default function Dashboard() {
       onLogout={handleLogout}
       role={role}
       fullName={fullName}
+      apiBaseUrl={API_BASE_URL}
+      token={token}
     >
       {renderContent()}
     </DashboardLayout>

@@ -21,6 +21,7 @@ type TeacherOption = {
   id: string;
   specialty?: string;
   user?: {
+    id?: string;
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -48,10 +49,16 @@ type ScheduleRow = {
     id: string;
     specialty?: string;
     user?: {
+      id?: string;
       firstName?: string;
       lastName?: string;
+      email?: string;
     };
   };
+};
+
+type TeacherOverviewResponse = {
+  schedules: ScheduleRow[];
 };
 
 type SchedulesPageProps = {
@@ -92,6 +99,10 @@ export default function SchedulesPage({
 }: SchedulesPageProps) {
   const { showToast } = useToast();
 
+  const role =
+    typeof window !== "undefined" ? localStorage.getItem("role") || "" : "";
+  const isTeacher = role === "TEACHER";
+
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
@@ -117,11 +128,19 @@ export default function SchedulesPage({
       setLoading(true);
       setError("");
 
-      const json = await apiGet<ScheduleRow[]>(
-        `${apiBaseUrl}/api/schedules`,
-        token
-      );
-      setSchedules(Array.isArray(json) ? json : []);
+      if (isTeacher) {
+        const json = await apiGet<TeacherOverviewResponse>(
+          `${apiBaseUrl}/api/my-teacher-overview`,
+          token
+        );
+        setSchedules(Array.isArray(json?.schedules) ? json.schedules : []);
+      } else {
+        const json = await apiGet<ScheduleRow[]>(
+          `${apiBaseUrl}/api/schedules`,
+          token
+        );
+        setSchedules(Array.isArray(json) ? json : []);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
@@ -136,15 +155,26 @@ export default function SchedulesPage({
       setLoadingLookups(true);
       setError("");
 
-      const [classesJson, subjectsJson, teachersJson] = await Promise.all([
-        apiGet<ClassOption[]>(`${apiBaseUrl}/api/classes`, token),
-        apiGet<SubjectOption[]>(`${apiBaseUrl}/api/subjects`, token),
-        apiGet<TeacherOption[]>(`${apiBaseUrl}/api/teachers`, token),
-      ]);
+      if (isTeacher) {
+        const [classesJson, subjectsJson] = await Promise.all([
+          apiGet<ClassOption[]>(`${apiBaseUrl}/api/classes`, token),
+          apiGet<SubjectOption[]>(`${apiBaseUrl}/api/subjects`, token),
+        ]);
 
-      setClasses(Array.isArray(classesJson) ? classesJson : []);
-      setSubjects(Array.isArray(subjectsJson) ? subjectsJson : []);
-      setTeachers(Array.isArray(teachersJson) ? teachersJson : []);
+        setClasses(Array.isArray(classesJson) ? classesJson : []);
+        setSubjects(Array.isArray(subjectsJson) ? subjectsJson : []);
+        setTeachers([]);
+      } else {
+        const [classesJson, subjectsJson, teachersJson] = await Promise.all([
+          apiGet<ClassOption[]>(`${apiBaseUrl}/api/classes`, token),
+          apiGet<SubjectOption[]>(`${apiBaseUrl}/api/subjects`, token),
+          apiGet<TeacherOption[]>(`${apiBaseUrl}/api/teachers`, token),
+        ]);
+
+        setClasses(Array.isArray(classesJson) ? classesJson : []);
+        setSubjects(Array.isArray(subjectsJson) ? subjectsJson : []);
+        setTeachers(Array.isArray(teachersJson) ? teachersJson : []);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
@@ -332,164 +362,172 @@ export default function SchedulesPage({
           : (item.subjectId ?? item.subject?.id ?? "") === subjectFilter;
 
       const matchesTeacher =
-        teacherFilter === "ALL"
+        isTeacher || teacherFilter === "ALL"
           ? true
           : (item.teacherId ?? item.teacher?.id ?? "") === teacherFilter;
 
       return matchesClass && matchesSubject && matchesTeacher;
     });
-  }, [schedules, classFilter, subjectFilter, teacherFilter]);
+  }, [schedules, classFilter, subjectFilter, teacherFilter, isTeacher]);
 
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-2xl font-bold">Schedules</h2>
+        <h2 className="text-2xl font-bold">
+          {isTeacher ? "My Schedule" : "Schedules"}
+        </h2>
         <p className="text-sm text-slate-500">
-          Manage class timetables, subjects, and teacher assignments.
+          {isTeacher
+            ? "View your teaching timetable by class, subject, and day."
+            : "Manage class timetables, subjects, and teacher assignments."}
         </p>
       </header>
 
-      <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h3 className="text-lg font-semibold">
-            {editingScheduleId ? "Edit Schedule" : "Create Schedule"}
-          </h3>
+      {!isTeacher ? (
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h3 className="text-lg font-semibold">
+              {editingScheduleId ? "Edit Schedule" : "Create Schedule"}
+            </h3>
 
-          {editingScheduleId ? (
-            <button
-              type="button"
-              onClick={resetForm}
-              className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              Cancel Edit
-            </button>
-          ) : null}
-        </div>
-
-        {error ? <ErrorState message={error} /> : null}
-
-        {loadingLookups ? (
-          <LoadingState message="Loading classes, subjects, and teachers..." />
-        ) : (
-          <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Class</label>
-              <select
-                value={form.classId}
-                onChange={(e) => handleChange("classId", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-              >
-                <option value="">Select a class</option>
-                {classes.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                    {item.academicYear ? ` (${item.academicYear})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Subject</label>
-              <select
-                value={form.subjectId}
-                onChange={(e) => handleChange("subjectId", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-              >
-                <option value="">Select a subject</option>
-                {subjects.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Teacher</label>
-              <select
-                value={form.teacherId}
-                onChange={(e) => handleChange("teacherId", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-              >
-                <option value="">Select a teacher</option>
-                {teachers.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {teacherLabel(item)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Day</label>
-              <select
-                value={form.dayOfWeek}
-                onChange={(e) => handleChange("dayOfWeek", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-              >
-                {DAY_OPTIONS.map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Start Time</label>
-              <input
-                type="time"
-                value={form.startTime}
-                onChange={(e) => handleChange("startTime", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">End Time</label>
-              <input
-                type="time"
-                value={form.endTime}
-                onChange={(e) => handleChange("endTime", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-              />
-            </div>
-
-            <div className="md:col-span-2 xl:col-span-3 flex gap-3">
+            {editingScheduleId ? (
               <button
-                type="submit"
-                disabled={creating || updating}
-                className="flex-1 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                type="button"
+                onClick={resetForm}
+                className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
               >
-                {editingScheduleId
-                  ? updating
-                    ? "Updating..."
-                    : "Update Schedule"
-                  : creating
-                  ? "Creating..."
-                  : "Create Schedule"}
+                Cancel Edit
               </button>
+            ) : null}
+          </div>
 
-              {editingScheduleId ? (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+          {error ? <ErrorState message={error} /> : null}
+
+          {loadingLookups ? (
+            <LoadingState message="Loading classes, subjects, and teachers..." />
+          ) : (
+            <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Class</label>
+                <select
+                  value={form.classId}
+                  onChange={(e) => handleChange("classId", e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
                 >
-                  Cancel
+                  <option value="">Select a class</option>
+                  {classes.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                      {item.academicYear ? ` (${item.academicYear})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Subject</label>
+                <select
+                  value={form.subjectId}
+                  onChange={(e) => handleChange("subjectId", e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                >
+                  <option value="">Select a subject</option>
+                  {subjects.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Teacher</label>
+                <select
+                  value={form.teacherId}
+                  onChange={(e) => handleChange("teacherId", e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                >
+                  <option value="">Select a teacher</option>
+                  {teachers.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {teacherLabel(item)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Day</label>
+                <select
+                  value={form.dayOfWeek}
+                  onChange={(e) => handleChange("dayOfWeek", e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                >
+                  {DAY_OPTIONS.map((day) => (
+                    <option key={day} value={day}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Start Time</label>
+                <input
+                  type="time"
+                  value={form.startTime}
+                  onChange={(e) => handleChange("startTime", e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">End Time</label>
+                <input
+                  type="time"
+                  value={form.endTime}
+                  onChange={(e) => handleChange("endTime", e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                />
+              </div>
+
+              <div className="md:col-span-2 xl:col-span-3 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={creating || updating}
+                  className="flex-1 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {editingScheduleId
+                    ? updating
+                      ? "Updating..."
+                      : "Update Schedule"
+                    : creating
+                    ? "Creating..."
+                    : "Create Schedule"}
                 </button>
-              ) : null}
-            </div>
-          </form>
-        )}
-      </section>
+
+                {editingScheduleId ? (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                ) : null}
+              </div>
+            </form>
+          )}
+        </section>
+      ) : null}
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <h3 className="text-lg font-semibold">Schedule List</h3>
+          <h3 className="text-lg font-semibold">
+            {isTeacher ? "My Schedule List" : "Schedule List"}
+          </h3>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className={`grid gap-3 ${isTeacher ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
             <select
               value={classFilter}
               onChange={(e) => setClassFilter(e.target.value)}
@@ -516,18 +554,20 @@ export default function SchedulesPage({
               ))}
             </select>
 
-            <select
-              value={teacherFilter}
-              onChange={(e) => setTeacherFilter(e.target.value)}
-              className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
-            >
-              <option value="ALL">All teachers</option>
-              {teachers.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {teacherLabel(item)}
-                </option>
-              ))}
-            </select>
+            {!isTeacher ? (
+              <select
+                value={teacherFilter}
+                onChange={(e) => setTeacherFilter(e.target.value)}
+                className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+              >
+                <option value="ALL">All teachers</option>
+                {teachers.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {teacherLabel(item)}
+                  </option>
+                ))}
+              </select>
+            ) : null}
 
             <button
               onClick={() => {
@@ -544,11 +584,17 @@ export default function SchedulesPage({
         </div>
 
         {loading ? (
-          <LoadingState message="Loading schedules..." />
+          <LoadingState message={isTeacher ? "Loading your schedule..." : "Loading schedules..."} />
         ) : error ? (
           <ErrorState message={error} />
         ) : filteredSchedules.length === 0 ? (
-          <EmptyState message="No schedules found for the current filters." />
+          <EmptyState
+            message={
+              isTeacher
+                ? "No schedule entries found for your current filters."
+                : "No schedules found for the current filters."
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
@@ -559,7 +605,9 @@ export default function SchedulesPage({
                   <th className="px-3 py-3 font-medium">Teacher</th>
                   <th className="px-3 py-3 font-medium">Day</th>
                   <th className="px-3 py-3 font-medium">Time</th>
-                  <th className="px-3 py-3 font-medium">Actions</th>
+                  {!isTeacher ? (
+                    <th className="px-3 py-3 font-medium">Actions</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -585,23 +633,25 @@ export default function SchedulesPage({
                       <td className="px-3 py-3 text-sm text-slate-600">
                         {item.startTime} - {item.endTime}
                       </td>
-                      <td className="px-3 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(item)}
-                            className="rounded-lg border px-3 py-1 text-sm hover:bg-slate-50"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            disabled={deletingId === item.id}
-                            className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
-                          >
-                            {deletingId === item.id ? "Deleting..." : "Delete"}
-                          </button>
-                        </div>
-                      </td>
+                      {!isTeacher ? (
+                        <td className="px-3 py-3">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="rounded-lg border px-3 py-1 text-sm hover:bg-slate-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              disabled={deletingId === item.id}
+                              className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            >
+                              {deletingId === item.id ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}

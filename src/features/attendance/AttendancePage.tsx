@@ -14,6 +14,12 @@ type StudentRow = {
   };
 };
 
+type ClassDetails = {
+  id: string;
+  name: string;
+  students?: StudentRow[];
+};
+
 type ScheduleRow = {
   id: string;
   dayOfWeek: string;
@@ -22,7 +28,6 @@ type ScheduleRow = {
   class?: {
     id: string;
     name: string;
-    students?: StudentRow[];
   };
   subject?: {
     id: string;
@@ -35,6 +40,10 @@ type ScheduleRow = {
       lastName?: string;
     };
   };
+};
+
+type TeacherOverviewResponse = {
+  schedules: ScheduleRow[];
 };
 
 type AttendanceRecord = {
@@ -74,7 +83,12 @@ export default function AttendancePage({
 }: AttendancePageProps) {
   const { showToast } = useToast();
 
+  const role =
+    typeof window !== "undefined" ? localStorage.getItem("role") || "" : "";
+  const isTeacher = role === "TEACHER";
+
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
+  const [classStudents, setClassStudents] = useState<StudentRow[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
 
@@ -93,6 +107,21 @@ export default function AttendancePage({
       setLoadingSchedules(true);
       setError("");
 
+      if (isTeacher) {
+        const json = await apiGet<TeacherOverviewResponse>(
+          `${apiBaseUrl}/api/my-teacher-overview`,
+          token
+        );
+        const list = Array.isArray(json?.schedules) ? json.schedules : [];
+        setSchedules(list);
+
+        if (!selectedScheduleId && list.length > 0) {
+          setSelectedScheduleId(list[0].id);
+        }
+
+        return;
+      }
+
       const json = await apiGet<ScheduleRow[]>(`${apiBaseUrl}/api/schedules`, token);
       const list = Array.isArray(json) ? json : [];
       setSchedules(list);
@@ -106,6 +135,31 @@ export default function AttendancePage({
       showToast(message, "error");
     } finally {
       setLoadingSchedules(false);
+    }
+  };
+
+  const fetchClassStudents = async (scheduleId: string) => {
+    const selected = schedules.find((item) => item.id === scheduleId);
+    const classId = selected?.class?.id;
+
+    if (!classId) {
+      setClassStudents([]);
+      return;
+    }
+
+    try {
+      const classJson = await apiGet<ClassDetails>(
+        `${apiBaseUrl}/api/classes/${classId}`,
+        token
+      );
+
+      setClassStudents(Array.isArray(classJson?.students) ? classJson.students : []);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load class students.";
+      setError(message);
+      setClassStudents([]);
+      showToast(message, "error");
     }
   };
 
@@ -145,6 +199,14 @@ export default function AttendancePage({
   }, []);
 
   useEffect(() => {
+    if (selectedScheduleId) {
+      fetchClassStudents(selectedScheduleId);
+    } else {
+      setClassStudents([]);
+    }
+  }, [selectedScheduleId, schedules]);
+
+  useEffect(() => {
     if (selectedScheduleId && selectedDate) {
       fetchAttendance(selectedScheduleId, selectedDate);
     }
@@ -154,8 +216,6 @@ export default function AttendancePage({
     () => schedules.find((item) => item.id === selectedScheduleId) ?? null,
     [schedules, selectedScheduleId]
   );
-
-  const classStudents = selectedSchedule?.class?.students ?? [];
 
   const attendanceSheet = useMemo(() => {
     return classStudents.map((student) => ({
@@ -246,9 +306,13 @@ export default function AttendancePage({
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-2xl font-bold">Attendance</h2>
+        <h2 className="text-2xl font-bold">
+          {isTeacher ? "My Attendance" : "Attendance"}
+        </h2>
         <p className="text-sm text-slate-500">
-          Select a schedule and date, then mark students as present, absent, or late.
+          {isTeacher
+            ? "Select one of your schedules and mark your students as present, absent, or late."
+            : "Select a schedule and date, then mark students as present, absent, or late."}
         </p>
       </header>
 
@@ -286,12 +350,16 @@ export default function AttendancePage({
               onClick={fetchSchedules}
               className="w-full rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
-              Refresh Schedules
+              {isTeacher ? "Refresh My Schedules" : "Refresh Schedules"}
             </button>
           </div>
         </div>
 
-        {error ? <div className="mt-4"><ErrorState message={error} /></div> : null}
+        {error ? (
+          <div className="mt-4">
+            <ErrorState message={error} />
+          </div>
+        ) : null}
 
         {successMessage ? (
           <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -362,7 +430,9 @@ export default function AttendancePage({
         </div>
 
         {loadingSchedules ? (
-          <LoadingState message="Loading schedules..." />
+          <LoadingState
+            message={isTeacher ? "Loading your schedules..." : "Loading schedules..."}
+          />
         ) : loadingAttendance ? (
           <LoadingState message="Loading attendance records..." />
         ) : !selectedScheduleId ? (

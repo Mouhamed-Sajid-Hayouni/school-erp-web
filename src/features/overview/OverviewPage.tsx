@@ -4,6 +4,7 @@ import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
 import { useToast } from "../../components/common/ToastProvider";
+import AdminOverviewWidgets from "./AdminOverviewWidgets";
 
 type StatsResponse = {
   totalUsers: number;
@@ -21,25 +22,15 @@ type UserRow = {
   createdAt?: string;
 };
 
-type ClassRow = {
-  id: string;
-};
-
-type SubjectRow = {
-  id: string;
-};
-
-type ScheduleRow = {
-  id: string;
-};
-
 type OverviewTabKey =
   | "users"
   | "classes"
   | "subjects"
   | "schedules"
   | "attendance"
-  | "grades";
+  | "grades"
+  | "assignments"
+  | "announcements";
 
 type OverviewPageProps = {
   apiBaseUrl: string;
@@ -56,10 +47,6 @@ export default function OverviewPage({
 
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [classCount, setClassCount] = useState(0);
-  const [subjectCount, setSubjectCount] = useState(0);
-  const [scheduleCount, setScheduleCount] = useState(0);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -68,25 +55,13 @@ export default function OverviewPage({
       setLoading(true);
       setError("");
 
-      const [
-        statsJson,
-        usersJson,
-        classesJson,
-        subjectsJson,
-        schedulesJson,
-      ] = await Promise.all([
+      const [statsJson, usersJson] = await Promise.all([
         apiGet<StatsResponse>(`${apiBaseUrl}/api/stats`, token),
         apiGet<UserRow[]>(`${apiBaseUrl}/api/users`, token),
-        apiGet<ClassRow[]>(`${apiBaseUrl}/api/classes`, token),
-        apiGet<SubjectRow[]>(`${apiBaseUrl}/api/subjects`, token),
-        apiGet<ScheduleRow[]>(`${apiBaseUrl}/api/schedules`, token),
       ]);
 
       setStats(statsJson);
       setUsers(Array.isArray(usersJson) ? usersJson : []);
-      setClassCount(Array.isArray(classesJson) ? classesJson.length : 0);
-      setSubjectCount(Array.isArray(subjectsJson) ? subjectsJson.length : 0);
-      setScheduleCount(Array.isArray(schedulesJson) ? schedulesJson.length : 0);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
@@ -109,53 +84,6 @@ export default function OverviewPage({
       })
       .slice(0, 5);
   }, [users]);
-
-  const kpis = [
-    { label: "Total Users", value: stats?.totalUsers ?? 0 },
-    { label: "Teachers", value: stats?.totalTeachers ?? 0 },
-    { label: "Students", value: stats?.totalStudents ?? 0 },
-    { label: "Admins", value: stats?.totalAdmins ?? 0 },
-    { label: "Classes", value: classCount },
-    { label: "Subjects", value: subjectCount },
-    { label: "Schedules", value: scheduleCount },
-  ];
-
-  const shortcuts: Array<{
-    label: string;
-    description: string;
-    tab: OverviewTabKey;
-  }> = [
-    {
-      label: "Manage Users",
-      description: "Create, edit, and organize platform accounts.",
-      tab: "users",
-    },
-    {
-      label: "Open Classes",
-      description: "Manage academic classes and years.",
-      tab: "classes",
-    },
-    {
-      label: "Open Subjects",
-      description: "Manage subjects and coefficients.",
-      tab: "subjects",
-    },
-    {
-      label: "Open Schedules",
-      description: "Plan classes, teachers, and subjects.",
-      tab: "schedules",
-    },
-    {
-      label: "Take Attendance",
-      description: "Mark present, absent, or late students.",
-      tab: "attendance",
-    },
-    {
-      label: "Enter Grades",
-      description: "Record grades and comments by class and subject.",
-      tab: "grades",
-    },
-  ];
 
   if (loading) {
     return <LoadingState message="Loading dashboard overview..." />;
@@ -187,36 +115,8 @@ export default function OverviewPage({
         </button>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {kpis.map((item) => (
-          <div key={item.label} className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">{item.label}</p>
-            <p className="mt-2 text-3xl font-bold">{item.value}</p>
-          </div>
-        ))}
-      </section>
-
       <section className="grid gap-6 xl:grid-cols-3">
-        <div className="rounded-2xl bg-white p-6 shadow-sm xl:col-span-2">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <h3 className="text-lg font-semibold">Quick Actions</h3>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {shortcuts.map((item) => (
-              <button
-                key={item.label}
-                onClick={() => onNavigate(item.tab)}
-                className="rounded-2xl border p-4 text-left transition hover:bg-slate-50"
-              >
-                <p className="font-semibold">{item.label}</p>
-                <p className="mt-2 text-sm text-slate-500">{item.description}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="rounded-2xl bg-white p-6 shadow-sm xl:col-span-3">
           <div className="mb-4 flex items-center justify-between gap-4">
             <h3 className="text-lg font-semibold">Recent Users</h3>
           </div>
@@ -224,7 +124,7 @@ export default function OverviewPage({
           {recentUsers.length === 0 ? (
             <p className="text-sm text-slate-500">No recent users found.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {recentUsers.map((user) => (
                 <div key={user.id} className="rounded-xl border p-3">
                   <div className="flex items-center justify-between gap-3">
@@ -247,6 +147,12 @@ export default function OverviewPage({
           )}
         </div>
       </section>
+
+      <AdminOverviewWidgets
+        apiBaseUrl={apiBaseUrl}
+        token={token}
+        onNavigate={onNavigate}
+      />
     </div>
   );
 }
