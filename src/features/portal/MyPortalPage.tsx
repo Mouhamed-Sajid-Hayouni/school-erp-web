@@ -27,6 +27,7 @@ type PortalGrade = {
   score: number;
   comments?: string | null;
   subject?: { name?: string; coefficient?: number };
+  subjectId?: string;
   createdAt?: string;
 };
 
@@ -51,6 +52,7 @@ type StudentPortalShape = {
     email?: string;
   };
   class?: {
+    id?: string;
     name?: string;
     academicYear?: string;
     schedules?: PortalSchedule[];
@@ -77,6 +79,112 @@ const PERIOD_OPTIONS: { value: GradePeriod; label: string }[] = [
   { value: "TRIMESTER_2", label: "Trimester 2" },
   { value: "TRIMESTER_3", label: "Trimester 3" },
 ];
+
+function isParentPortalResponse(data: PortalResponse | null): data is ParentPortalResponse {
+  return !!data && Array.isArray((data as ParentPortalResponse).children);
+}
+
+function buildStudentBulletinFromPortal(
+  student: StudentPortalShape,
+  period: GradePeriod
+): StudentBulletinResponse | null {
+  if (!student.id || !student.user) {
+    return null;
+  }
+
+  const grades = (student.grades ?? []).filter(
+    (grade) => (grade.period ?? "TRIMESTER_1") === period
+  );
+  const attendances = student.attendances ?? [];
+
+  const groups = new Map<
+    string,
+    {
+      subjectId: string;
+      subjectName: string;
+      coefficient: number;
+      scores: number[];
+    }
+  >();
+
+  for (const grade of grades) {
+    const subjectId =
+      grade.subjectId ??
+      `${grade.subject?.name ?? "Unknown Subject"}-${grade.id}`;
+
+    const subjectName = grade.subject?.name ?? "Unknown Subject";
+    const coefficient = grade.subject?.coefficient ?? 1;
+
+    const existing = groups.get(subjectId);
+
+    if (existing) {
+      existing.scores.push(grade.score);
+    } else {
+      groups.set(subjectId, {
+        subjectId,
+        subjectName,
+        coefficient,
+        scores: [grade.score],
+      });
+    }
+  }
+
+  const subjects = Array.from(groups.values()).map((item) => {
+    const average =
+      item.scores.reduce((sum, score) => sum + score, 0) / item.scores.length;
+
+    return {
+      subjectId: item.subjectId,
+      subjectName: item.subjectName,
+      coefficient: item.coefficient,
+      gradesCount: item.scores.length,
+      average,
+    };
+  });
+
+  const coefficientSum = subjects.reduce(
+    (sum, subject) => sum + subject.coefficient,
+    0
+  );
+
+  const weightedSum = subjects.reduce(
+    (sum, subject) => sum + subject.average * subject.coefficient,
+    0
+  );
+
+  const generalAverage =
+    coefficientSum > 0 ? weightedSum / coefficientSum : null;
+
+  const bestScore =
+    grades.length > 0 ? Math.max(...grades.map((grade) => grade.score)) : null;
+
+  const absencesCount = attendances.filter(
+    (attendance) => attendance.status === "ABSENT"
+  ).length;
+
+  return {
+    student: {
+      id: student.id,
+      firstName: student.user.firstName ?? "",
+      lastName: student.user.lastName ?? "",
+      email: student.user.email ?? "",
+    },
+    class: student.class
+      ? {
+          id: student.class.id ?? "",
+          name: student.class.name ?? "",
+          academicYear: student.class.academicYear ?? "",
+        }
+      : null,
+    period,
+    gradesCount: grades.length,
+    bestScore,
+    generalAverage,
+    coefficientSum,
+    absencesCount,
+    subjects: subjects.sort((a, b) => b.average - a.average),
+  };
+}
 
 function SummaryCards({
   summary,
@@ -265,19 +373,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   const [portalError, setPortalError] = useState("");
 
   const [period, setPeriod] = useState<GradePeriod>("TRIMESTER_1");
-  const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState("");
-
-  const [studentSummary, setStudentSummary] =
-    useState<StudentBulletinResponse | null>(null);
-  const [childSummaries, setChildSummaries] = useState<
-    Record<string, StudentBulletinResponse>
-  >({});
-
-  const isParentResponse = useMemo(
-    () => !!data && Array.isArray((data as ParentPortalResponse).children),
-    [data]
-  );
 
   useEffect(() => {
     const fetchPortal = async () => {
@@ -302,74 +398,59 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
     fetchPortal();
   }, [apiBaseUrl, token]);
 
-  useEffect(() => {
-    const fetchSummaries = async () => {
-      if (!data) return;
+  const isParentResponse = isParentPortalResponse(data);
 
-      try {
-        setSummaryLoading(true);
-        setSummaryError("");
+  const studentSummary = useMemo(() => {
+    if (!data || isParentResponse) return null;
+    return buildStudentBulletinFromPortal(data as StudentPortalShape, period);
+  }, [data, isParentResponse, period]);
 
-        if (isParentResponse) {
-          const parentData = data as ParentPortalResponse;
-          const children = parentData.children ?? [];
+  const childSummaries = useMemo(() => {
+    if (!data || !isParentResponse) return {};
 
-          const settled = await Promise.allSettled(
-            children.map((child) =>
-              apiGet<StudentBulletinResponse>(
-                `${apiBaseUrl}/api/student-summary/${child.id}?period=${period}`,
-                token
-              )
-            )
-          );
+    const parentData = data as ParentPortalResponse;
+    const children = parentData.children ?? [];
 
-          const nextMap: Record<string, StudentBulletinResponse> = {};
+    return children.reduce<Record<string, StudentBulletinResponse>>((acc, child) => {
+      if (!child.id) return acc;
 
-          children.forEach((child, index) => {
-            const result = settled[index];
-            if (result.status === "fulfilled") {
-              nextMap[child.id!] = result.value;
-            }
-          });
-
-          setChildSummaries(nextMap);
-
-          if (settled.some((item) => item.status === "rejected")) {
-            setSummaryError("Some weighted summaries could not be loaded.");
-          }
-        } else {
-          const studentData = data as StudentPortalShape;
-
-          if (!studentData.id) {
-            setStudentSummary(null);
-            return;
-          }
-
-          const response = await apiGet<StudentBulletinResponse>(
-            `${apiBaseUrl}/api/student-summary/${studentData.id}?period=${period}`,
-            token
-          );
-
-          setStudentSummary(response);
-        }
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to load academic summary.";
-        setSummaryError(message);
-      } finally {
-        setSummaryLoading(false);
+      const summary = buildStudentBulletinFromPortal(child, period);
+      if (summary) {
+        acc[child.id] = summary;
       }
-    };
 
-    fetchSummaries();
-  }, [data, isParentResponse, apiBaseUrl, token, period]);
+      return acc;
+    }, {});
+  }, [data, isParentResponse, period]);
+
+  useEffect(() => {
+    setSummaryError("");
+  }, [period, data]);
 
   const handleExportBulletin = async (studentId: string) => {
     try {
-      const bulletin = await apiGet<StudentBulletinResponse>(
-        `${apiBaseUrl}/api/student-bulletin/${studentId}?period=${period}`,
-        token
-      );
+      setSummaryError("");
+
+      let targetStudent: StudentPortalShape | null = null;
+
+      if (isParentResponse) {
+        const parentData = data as ParentPortalResponse;
+        targetStudent =
+          (parentData.children ?? []).find((child) => child.id === studentId) ?? null;
+      } else {
+        const studentData = data as StudentPortalShape;
+        targetStudent = studentData.id === studentId ? studentData : null;
+      }
+
+      if (!targetStudent) {
+        throw new Error("Student data not available for bulletin export.");
+      }
+
+      const bulletin = buildStudentBulletinFromPortal(targetStudent, period);
+
+      if (!bulletin) {
+        throw new Error("Bulletin data is incomplete.");
+      }
 
       await exportBulletinPdf(bulletin);
     } catch (err) {
@@ -433,7 +514,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
           </div>
         ) : null}
 
-                {children.map((child) => {
+        {children.map((child) => {
           const schedule = child.class?.schedules ?? [];
           const grades = child.grades ?? [];
           const attendances = child.attendances ?? [];
@@ -442,8 +523,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
             "Student";
 
           const summary = child.id ? childSummaries[child.id] ?? null : null;
-
-          const targetStudentId = child.id ?? summary?.student.id ?? "";
+          const targetStudentId = child.id ?? "";
 
           return (
             <section key={child.id ?? fullName} className="space-y-6">
@@ -465,7 +545,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
                     className={`rounded-xl px-4 py-2 text-sm font-medium text-white ${
                       targetStudentId
                         ? "bg-slate-900 hover:bg-slate-800"
-                        : "bg-slate-300 cursor-not-allowed"
+                        : "cursor-not-allowed bg-slate-300"
                     }`}
                   >
                     Export Bulletin PDF
@@ -482,7 +562,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
               <SummaryCards summary={summary} attendances={attendances} />
 
               <div className="grid gap-6 xl:grid-cols-2">
-                <SubjectAverageSection summary={summary} loading={summaryLoading} />
+                <SubjectAverageSection summary={summary} loading={false} />
                 <TimetableSection schedule={schedule} />
               </div>
 
@@ -554,11 +634,11 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
       <SummaryCards summary={studentSummary} attendances={attendances} />
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <SubjectAverageSection summary={studentSummary} loading={summaryLoading} />
+        <SubjectAverageSection summary={studentSummary} loading={false} />
         <TimetableSection schedule={schedule} />
       </div>
 
-            <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2">
         <GradesSection grades={grades} period={period} />
         <AttendanceSection attendances={attendances} title="Absences" />
       </div>
