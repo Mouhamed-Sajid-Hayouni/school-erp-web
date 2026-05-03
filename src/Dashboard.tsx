@@ -12,6 +12,8 @@ import TeacherOverviewPage from "./features/overview/TeacherOverviewPage";
 import AssignmentsPage from "./features/assignments/AssignmentsPage";
 import AnnouncementsPage from "./features/announcements/AnnouncementsPage";
 import ReportsPage from "./features/reports/ReportsPage";
+import MessagesPage from "./features/messages/MessagesPage";
+import SchoolSettingsPage from "./features/settings/SchoolSettingsPage";
 
 type TabKey =
   | "overview"
@@ -24,7 +26,9 @@ type TabKey =
   | "grades"
   | "assignments"
   | "announcements"
-  | "reports";
+  | "reports"
+  | "messages"
+  | "settings";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
@@ -39,6 +43,8 @@ export default function Dashboard() {
     role === "STUDENT" || role === "PARENT" ? "portal" : "overview";
 
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
+  const [messageConversationToOpen, setMessageConversationToOpen] =
+    useState<string | null>(null);
 
   const fullName = useMemo(() => {
     const value = `${firstName} ${lastName}`.trim();
@@ -55,6 +61,20 @@ export default function Dashboard() {
     localStorage.removeItem("firstName");
     localStorage.removeItem("lastName");
     window.location.reload();
+  };
+
+  const handleOpenMessages = (conversationId?: string | null) => {
+    setMessageConversationToOpen(conversationId || null);
+    setActiveTab("messages");
+  };
+
+  const renderMessagesPage = () => {
+    return (
+      <MessagesPage
+        initialConversationId={messageConversationToOpen}
+        onInitialConversationOpened={() => setMessageConversationToOpen(null)}
+      />
+    );
   };
 
   const renderOverview = () => {
@@ -79,7 +99,16 @@ export default function Dashboard() {
 
   const renderContent = () => {
     if (isStudentOrParent) {
-      return <MyPortalPage apiBaseUrl={API_BASE_URL} token={token} />;
+      switch (activeTab) {
+        case "portal":
+          return <MyPortalPage apiBaseUrl={API_BASE_URL} token={token} />;
+
+        case "messages":
+          return renderMessagesPage();
+
+        default:
+          return <MyPortalPage apiBaseUrl={API_BASE_URL} token={token} />;
+      }
     }
 
     switch (activeTab) {
@@ -122,12 +151,14 @@ export default function Dashboard() {
       case "announcements":
         return <AnnouncementsPage apiBaseUrl={API_BASE_URL} token={token} />;
 
+      case "messages":
+        return renderMessagesPage();
+
       case "reports":
-        return isAdmin ? (
-          <ReportsPage />
-        ) : (
-        renderOverview()
-        );
+        return isAdmin ? <ReportsPage /> : renderOverview();
+
+      case "settings":
+        return isAdmin ? <SchoolSettingsPage /> : renderOverview();
 
       default:
         return renderOverview();
@@ -143,6 +174,7 @@ export default function Dashboard() {
       fullName={fullName}
       apiBaseUrl={API_BASE_URL}
       token={token}
+      onOpenMessages={handleOpenMessages}
     >
       {renderContent()}
     </DashboardLayout>

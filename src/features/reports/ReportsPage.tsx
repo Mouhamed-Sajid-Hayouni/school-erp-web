@@ -114,8 +114,25 @@ type StudentReportResponse = {
 
 type ReportTab = "attendance" | "grades" | "student";
 
+type SchoolSettings = {
+  id: string;
+  schoolName: string;
+  schoolSubtitle: string;
+  academicYear: string;
+  defaultTrimester: GradePeriod;
+  defaultReportFrom: string | null;
+  defaultReportTo: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
+const toDateInputValue = (value: string | null) => {
+  if (!value) return "";
+  return value.slice(0, 10);
+};
 
 export default function ReportsPage() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -124,8 +141,8 @@ export default function ReportsPage() {
   const [reportTab, setReportTab] = useState<ReportTab>("attendance");
 
   const [classId, setClassId] = useState("");
-  const [from, setFrom] = useState("2026-04-01");
-  const [to, setTo] = useState("2026-04-24");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [report, setReport] = useState<AttendanceReportResponse | null>(null);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
@@ -156,6 +173,30 @@ export default function ReportsPage() {
   }, [classes, classId]);
 
   useEffect(() => {
+
+    async function loadSchoolSettings() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/settings/school`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      return;
+    }
+
+    const data: SchoolSettings = await res.json();
+
+    setGradePeriod(data.defaultTrimester || "TRIMESTER_1");
+    setStudentPeriod(data.defaultTrimester || "TRIMESTER_1");
+    setFrom(toDateInputValue(data.defaultReportFrom));
+    setTo(toDateInputValue(data.defaultReportTo));
+  } catch {
+    // Keep empty dates and TRIMESTER_1 fallback if settings cannot load.
+  }
+}
+
     async function loadClasses() {
       setLoadingClasses(true);
       setError("");
@@ -205,6 +246,7 @@ export default function ReportsPage() {
       }
     }
 
+    loadSchoolSettings();
     loadClasses();
     loadSubjects();
   }, [token]);
@@ -363,6 +405,233 @@ export default function ReportsPage() {
     }
   }
 
+  function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function exportAttendancePdf() {
+  if (!report) return;
+
+  const safeClassName = report.class.name.replace(/[\\/:*?"<>|]/g, "-");
+
+  const rowsHtml = report.rows
+    .map(
+      (row) => `
+        <tr>
+          <td>${escapeHtml(row.studentName)}</td>
+          <td>${escapeHtml(row.email)}</td>
+          <td>${row.present}</td>
+          <td>${row.absent}</td>
+          <td>${row.late}</td>
+          <td>${row.total}</td>
+          <td>${row.absenceRate}%</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>attendance-report-${escapeHtml(safeClassName)}-${escapeHtml(report.from)}-${escapeHtml(report.to)}</title>
+        <style>
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            font-family: Arial, sans-serif;
+            color: #0f172a;
+            margin: 32px;
+          }
+
+          .header {
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+          }
+
+          h1 {
+            margin: 0;
+            font-size: 26px;
+          }
+
+          .subtitle {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 13px;
+          }
+
+          .meta {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+          }
+
+          .card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            background: #f8fafc;
+          }
+
+          .card-label {
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          }
+
+          .card-value {
+            margin-top: 6px;
+            font-size: 18px;
+            font-weight: 700;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+          }
+
+          th {
+            background: #f1f5f9;
+            text-align: left;
+            color: #334155;
+          }
+
+          th,
+          td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+          }
+
+          .footer {
+            margin-top: 24px;
+            color: #64748b;
+            font-size: 11px;
+          }
+
+          @media print {
+            body {
+              margin: 18mm;
+            }
+
+            button {
+              display: none;
+            }
+          }
+        </style>
+      </head>
+
+      <body>
+        <div class="header">
+          <h1>Attendance Report</h1>
+          <div class="subtitle">
+            School ERP — ${escapeHtml(report.class.name)} — ${escapeHtml(report.from)} to ${escapeHtml(report.to)}
+          </div>
+        </div>
+
+        <div class="meta">
+          <div class="card">
+            <div class="card-label">Class</div>
+            <div class="card-value">${escapeHtml(report.class.name)}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Students</div>
+            <div class="card-value">${report.summary.students}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Present</div>
+            <div class="card-value">${report.summary.totalPresent}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Absent</div>
+            <div class="card-value">${report.summary.totalAbsent}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Late</div>
+            <div class="card-value">${report.summary.totalLate}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Total Records</div>
+            <div class="card-value">${report.summary.totalRecords}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">From</div>
+            <div class="card-value">${escapeHtml(report.from)}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">To</div>
+            <div class="card-value">${escapeHtml(report.to)}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Email</th>
+              <th>Present</th>
+              <th>Absent</th>
+              <th>Late</th>
+              <th>Total</th>
+              <th>Absence %</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${
+              rowsHtml ||
+              `
+                <tr>
+                  <td colspan="7">No students found for this class.</td>
+                </tr>
+              `
+            }
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Generated from School ERP on ${escapeHtml(new Date().toLocaleString())}
+        </div>
+
+        <script>
+          window.onload = function () {
+            window.print();
+          };
+        </script>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank", "width=1000,height=800");
+
+  if (!printWindow) {
+    setError("Popup blocked. Please allow popups to export the PDF.");
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
   function exportAttendanceExcel() {
     if (!report) return;
 
@@ -401,6 +670,222 @@ export default function ReportsPage() {
       `attendance-report-${safeClassName}-${report.from}-${report.to}.xlsx`
     );
   }
+
+  function exportGradesPdf() {
+  if (!gradesReport) return;
+
+  const safeClassName = gradesReport.class.name.replace(/[\\/:*?"<>|]/g, "-");
+
+  const selectedSubjectName =
+    subjects.find((subject) => subject.id === gradesReport.subjectId)?.name ||
+    "All subjects";
+
+  const rowsHtml = gradesReport.rows
+    .map(
+      (row) => `
+        <tr>
+          <td>${escapeHtml(row.studentName)}</td>
+          <td>${escapeHtml(row.email)}</td>
+          <td>${row.gradesCount}</td>
+          <td>${row.average !== null ? row.average.toFixed(2) : "-"}</td>
+          <td>${row.bestScore !== null ? row.bestScore : "-"}</td>
+          <td>${row.lowestScore !== null ? row.lowestScore : "-"}</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>grades-report-${escapeHtml(safeClassName)}-${escapeHtml(gradesReport.period)}</title>
+        <style>
+          * { box-sizing: border-box; }
+
+          body {
+            font-family: Arial, sans-serif;
+            color: #0f172a;
+            margin: 32px;
+          }
+
+          .header {
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+          }
+
+          h1 {
+            margin: 0;
+            font-size: 26px;
+          }
+
+          .subtitle {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 13px;
+          }
+
+          .meta {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+          }
+
+          .card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            background: #f8fafc;
+          }
+
+          .card-label {
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          }
+
+          .card-value {
+            margin-top: 6px;
+            font-size: 18px;
+            font-weight: 700;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+          }
+
+          th {
+            background: #f1f5f9;
+            text-align: left;
+            color: #334155;
+          }
+
+          th, td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+          }
+
+          .footer {
+            margin-top: 24px;
+            color: #64748b;
+            font-size: 11px;
+          }
+
+          @media print {
+            body { margin: 18mm; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+
+      <body>
+        <div class="header">
+          <h1>Grades Report</h1>
+          <div class="subtitle">
+            School ERP — ${escapeHtml(gradesReport.class.name)} — ${escapeHtml(selectedSubjectName)} — ${escapeHtml(gradesReport.period)}
+          </div>
+        </div>
+
+        <div class="meta">
+          <div class="card">
+            <div class="card-label">Class</div>
+            <div class="card-value">${escapeHtml(gradesReport.class.name)}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Subject</div>
+            <div class="card-value">${escapeHtml(selectedSubjectName)}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Period</div>
+            <div class="card-value">${escapeHtml(gradesReport.period)}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Students</div>
+            <div class="card-value">${gradesReport.summary.students}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Graded Students</div>
+            <div class="card-value">${gradesReport.summary.gradedStudents}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Total Grades</div>
+            <div class="card-value">${gradesReport.summary.totalGrades}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Class Average</div>
+            <div class="card-value">${
+              gradesReport.summary.classAverage !== null
+                ? gradesReport.summary.classAverage.toFixed(2)
+                : "-"
+            }</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Academic Year</div>
+            <div class="card-value">${escapeHtml(gradesReport.class.academicYear)}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Email</th>
+              <th>Grades</th>
+              <th>Average</th>
+              <th>Best</th>
+              <th>Lowest</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${
+              rowsHtml ||
+              `
+                <tr>
+                  <td colspan="6">No students found for this class.</td>
+                </tr>
+              `
+            }
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Generated from School ERP on ${escapeHtml(new Date().toLocaleString())}
+        </div>
+
+        <script>
+          window.onload = function () {
+            window.print();
+          };
+        </script>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank", "width=1000,height=800");
+
+  if (!printWindow) {
+    setError("Popup blocked. Please allow popups to export the PDF.");
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
 
   function exportGradesExcel() {
     if (!gradesReport) return;
@@ -460,6 +945,216 @@ export default function ReportsPage() {
       `grades-report-${safeClassName}-${safeSubjectName}-${gradesReport.period}.xlsx`
     );
   }
+
+  function exportStudentPdf() {
+  if (!studentReport) return;
+
+  const studentName = `${studentReport.student.firstName} ${studentReport.student.lastName}`;
+
+  const rowsHtml = studentReport.subjects
+    .map(
+      (subject) => `
+        <tr>
+          <td>${escapeHtml(subject.subjectName)}</td>
+          <td>${subject.coefficient}</td>
+          <td>${subject.gradesCount}</td>
+          <td>${subject.average.toFixed(2)}</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>student-report-${escapeHtml(studentName)}-${escapeHtml(studentReport.period)}</title>
+        <style>
+          * { box-sizing: border-box; }
+
+          body {
+            font-family: Arial, sans-serif;
+            color: #0f172a;
+            margin: 32px;
+          }
+
+          .header {
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+          }
+
+          h1 {
+            margin: 0;
+            font-size: 26px;
+          }
+
+          .subtitle {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 13px;
+          }
+
+          .meta {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+          }
+
+          .card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            background: #f8fafc;
+          }
+
+          .card-label {
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          }
+
+          .card-value {
+            margin-top: 6px;
+            font-size: 18px;
+            font-weight: 700;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+          }
+
+          th {
+            background: #f1f5f9;
+            text-align: left;
+            color: #334155;
+          }
+
+          th, td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+          }
+
+          .footer {
+            margin-top: 24px;
+            color: #64748b;
+            font-size: 11px;
+          }
+
+          @media print {
+            body { margin: 18mm; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+
+      <body>
+        <div class="header">
+          <h1>Student Full Report</h1>
+          <div class="subtitle">
+            School ERP — ${escapeHtml(studentName)} — ${escapeHtml(studentReport.period)}
+          </div>
+        </div>
+
+        <div class="meta">
+          <div class="card">
+            <div class="card-label">Student</div>
+            <div class="card-value">${escapeHtml(studentName)}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Email</div>
+            <div class="card-value">${escapeHtml(studentReport.student.email)}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Class</div>
+            <div class="card-value">${escapeHtml(studentReport.class?.name ?? "-")}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Period</div>
+            <div class="card-value">${escapeHtml(studentReport.period)}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">General Average</div>
+            <div class="card-value">${
+              studentReport.generalAverage !== null
+                ? studentReport.generalAverage.toFixed(2)
+                : "-"
+            }</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Best Score</div>
+            <div class="card-value">${
+              studentReport.bestScore !== null ? studentReport.bestScore : "-"
+            }</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Absences</div>
+            <div class="card-value">${studentReport.absencesCount}</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Grades Count</div>
+            <div class="card-value">${studentReport.gradesCount}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Coefficient</th>
+              <th>Grades</th>
+              <th>Average</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${
+              rowsHtml ||
+              `
+                <tr>
+                  <td colspan="4">No subject grades found for this student and trimester.</td>
+                </tr>
+              `
+            }
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Generated from School ERP on ${escapeHtml(new Date().toLocaleString())}
+        </div>
+
+        <script>
+          window.onload = function () {
+            window.print();
+          };
+        </script>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank", "width=1000,height=800");
+
+  if (!printWindow) {
+    setError("Popup blocked. Please allow popups to export the PDF.");
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
 
   function exportStudentExcel() {
     if (!studentReport) return;
@@ -577,13 +1272,22 @@ export default function ReportsPage() {
               </div>
 
               {report && (
-                <button
-                  onClick={exportAttendanceExcel}
-                  className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Export Excel
-                </button>
-              )}
+  <div className="flex flex-wrap gap-2">
+    <button
+      onClick={exportAttendancePdf}
+      className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+    >
+      Export PDF
+    </button>
+
+    <button
+      onClick={exportAttendanceExcel}
+      className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+    >
+      Export Excel
+    </button>
+  </div>
+)}
             </div>
 
             <div className="grid gap-4 md:grid-cols-4">
@@ -752,13 +1456,22 @@ export default function ReportsPage() {
               </div>
 
               {gradesReport && (
-                <button
-                  onClick={exportGradesExcel}
-                  className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Export Excel
-                </button>
-              )}
+  <div className="flex flex-wrap gap-2">
+    <button
+      onClick={exportGradesPdf}
+      className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+    >
+      Export PDF
+    </button>
+
+    <button
+      onClick={exportGradesExcel}
+      className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+    >
+      Export Excel
+    </button>
+  </div>
+)}
             </div>
 
             <div className="grid gap-4 md:grid-cols-4">
@@ -945,13 +1658,22 @@ export default function ReportsPage() {
               </div>
 
               {studentReport && (
-                <button
-                  onClick={exportStudentExcel}
-                  className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Export Excel
-                </button>
-              )}
+  <div className="flex flex-wrap gap-2">
+    <button
+      onClick={exportStudentPdf}
+      className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+    >
+      Export PDF
+    </button>
+
+    <button
+      onClick={exportStudentExcel}
+      className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+    >
+      Export Excel
+    </button>
+  </div>
+)}
             </div>
 
             <div className="grid gap-4 md:grid-cols-4">

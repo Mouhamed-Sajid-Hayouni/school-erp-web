@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck, MessageCircle } from "lucide-react";
 
 type NotificationItem = {
   id: string;
@@ -15,6 +15,7 @@ type NotificationItem = {
 type NotificationsBellProps = {
   apiBaseUrl: string;
   token: string;
+  onOpenMessages?: (conversationId?: string | null) => void;
 };
 
 async function apiRequest<T>(
@@ -48,15 +49,17 @@ function TypeBadge({ type }: { type: string }) {
   const normalized = type.toUpperCase();
 
   const style =
-    normalized === "ASSIGNMENT"
-      ? "bg-blue-100 text-blue-700"
-      : normalized === "ANNOUNCEMENT"
-      ? "bg-emerald-100 text-emerald-700"
-      : normalized === "GRADE"
-      ? "bg-amber-100 text-amber-700"
-      : normalized === "BULLETIN"
-      ? "bg-indigo-100 text-indigo-700"
-      : "bg-slate-100 text-slate-700";
+  normalized === "ASSIGNMENT"
+    ? "bg-blue-100 text-blue-700"
+    : normalized === "ANNOUNCEMENT"
+    ? "bg-emerald-100 text-emerald-700"
+    : normalized === "GRADE"
+    ? "bg-amber-100 text-amber-700"
+    : normalized === "BULLETIN"
+    ? "bg-indigo-100 text-indigo-700"
+    : normalized === "MESSAGE"
+    ? "bg-violet-100 text-violet-700"
+    : "bg-slate-100 text-slate-700";
 
   return (
     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${style}`}>
@@ -68,6 +71,7 @@ function TypeBadge({ type }: { type: string }) {
 export default function NotificationsBell({
   apiBaseUrl,
   token,
+  onOpenMessages,
 }: NotificationsBellProps) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
@@ -144,6 +148,19 @@ export default function NotificationsBell({
     }
   };
 
+  const handleOpenMessages = async (
+  notificationId: string,
+  isRead: boolean,
+  conversationId?: string | null
+) => {
+  if (!isRead) {
+    await handleMarkRead(notificationId);
+  }
+
+  setOpen(false);
+  onOpenMessages?.(conversationId);
+};
+
   return (
     <div className="space-y-3">
       <button
@@ -217,21 +234,34 @@ export default function NotificationsBell({
                   </p>
 
                   <div className="mt-2 flex items-center justify-between gap-3">
-                    <p className="text-[11px] text-slate-500">
-                      {formatDateTime(item.createdAt)}
-                    </p>
+  <p className="text-[11px] text-slate-500">
+    {formatDateTime(item.createdAt)}
+  </p>
 
-                    {!item.isRead ? (
-                      <button
-                        onClick={() => handleMarkRead(item.id)}
-                        disabled={savingId === item.id}
-                        className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-medium text-white disabled:opacity-60"
-                      >
-                        <CheckCheck className="h-3.5 w-3.5" />
-                        {savingId === item.id ? "Saving..." : "Mark read"}
-                      </button>
-                    ) : null}
-                  </div>
+  <div className="flex items-center gap-2">
+    {item.type.toUpperCase() === "MESSAGE" ? (
+      <button
+        onClick={() => handleOpenMessages(item.id, item.isRead, item.relatedId)}
+        disabled={savingId === item.id}
+        className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-[11px] font-medium text-white disabled:opacity-60"
+      >
+        <MessageCircle className="h-3.5 w-3.5" />
+        Open messages
+      </button>
+    ) : null}
+
+    {!item.isRead ? (
+      <button
+        onClick={() => handleMarkRead(item.id)}
+        disabled={savingId === item.id}
+        className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-medium text-white disabled:opacity-60"
+      >
+        <CheckCheck className="h-3.5 w-3.5" />
+        {savingId === item.id ? "Saving..." : "Mark read"}
+      </button>
+    ) : null}
+  </div>
+</div>
                 </div>
               ))}
             </div>
