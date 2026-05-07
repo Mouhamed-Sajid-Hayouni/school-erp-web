@@ -14,6 +14,7 @@ import {
   BarChart3,
   MessageCircle,
   Settings,
+  ScrollText,
 } from "lucide-react";
 import NotificationsBell from "../common/NotificationsBell";
 
@@ -30,7 +31,8 @@ type TabKey =
   | "announcements"
   | "reports"
   | "messages"
-  | "settings";
+  | "settings"
+  | "auditLogs";
 
 type DashboardLayoutProps = {
   activeTab: TabKey;
@@ -99,6 +101,11 @@ const adminTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
     key: "reports",
     label: "Reports",
     icon: <BarChart3 className="h-4 w-4" />,
+  },
+  {
+    key: "auditLogs",
+    label: "Audit Logs",
+    icon: <ScrollText className="h-4 w-4" />,
   },
   {
     key: "settings",
@@ -195,6 +202,12 @@ useEffect(() => {
   }
 
   loadSchoolSettings();
+
+  window.addEventListener("school-settings-updated", loadSchoolSettings);
+
+  return () => {
+    window.removeEventListener("school-settings-updated", loadSchoolSettings);
+  };
 }, [apiBaseUrl, token]);
 
   return (

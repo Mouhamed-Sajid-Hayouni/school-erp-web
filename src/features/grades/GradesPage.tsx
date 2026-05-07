@@ -87,6 +87,15 @@ const PERIOD_OPTIONS: { value: GradePeriod; label: string }[] = [
   { value: "TRIMESTER_3", label: "Trimester 3" },
 ];
 
+const EXAM_TYPE_OPTIONS = [
+  "Devoir de Contrôle N°1",
+  "Devoir de Contrôle N°2",
+  "Devoir de Synthèse",
+  "Oral",
+  "TP",
+  "Projet",
+];
+
 async function notifyBulletin(
   apiBaseUrl: string,
   token: string,
@@ -564,13 +573,17 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Exam Type</label>
-            <input
-              type="text"
+            <select
               value={examType}
               onChange={(e) => setExamType(e.target.value)}
-              placeholder="e.g. Devoir de Contrôle N°1"
               className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-            />
+            >
+              {EXAM_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-end gap-3">

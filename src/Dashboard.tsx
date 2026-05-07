@@ -14,6 +14,7 @@ import AnnouncementsPage from "./features/announcements/AnnouncementsPage";
 import ReportsPage from "./features/reports/ReportsPage";
 import MessagesPage from "./features/messages/MessagesPage";
 import SchoolSettingsPage from "./features/settings/SchoolSettingsPage";
+import AuditLogsPage from "./features/audit/AuditLogsPage";
 
 type TabKey =
   | "overview"
@@ -28,7 +29,8 @@ type TabKey =
   | "announcements"
   | "reports"
   | "messages"
-  | "settings";
+  | "settings"
+  | "auditLogs";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
@@ -159,6 +161,13 @@ export default function Dashboard() {
 
       case "settings":
         return isAdmin ? <SchoolSettingsPage /> : renderOverview();
+
+      case "auditLogs":
+        return isAdmin ? (
+          <AuditLogsPage apiBaseUrl={API_BASE_URL} token={token} />
+        ) : (
+          renderOverview()
+        );
 
       default:
         return renderOverview();

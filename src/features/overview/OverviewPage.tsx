@@ -22,6 +22,33 @@ type UserRow = {
   createdAt?: string;
 };
 
+type SchoolSettings = {
+  id: string;
+  schoolName: string;
+  schoolSubtitle: string;
+  academicYear: string;
+  defaultTrimester: "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
+  defaultReportFrom?: string | null;
+  defaultReportTo?: string | null;
+};
+
+type AuditLog = {
+  id: string;
+  action: string;
+  entity: string;
+  actorName: string | null;
+  actorRole: string | null;
+  createdAt: string;
+};
+
+type AuditLogsResponse = {
+  data: AuditLog[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 type OverviewTabKey =
   | "users"
   | "classes"
@@ -47,6 +74,8 @@ export default function OverviewPage({
 
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [schoolSettings, setSchoolSettings] = useState<SchoolSettings | null>(null);
+  const [latestAuditLog, setLatestAuditLog] = useState<AuditLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -55,13 +84,19 @@ export default function OverviewPage({
       setLoading(true);
       setError("");
 
-      const [statsJson, usersJson] = await Promise.all([
+      const [statsJson, usersJson, settingsJson, auditJson] = await Promise.all([
         apiGet<StatsResponse>(`${apiBaseUrl}/api/stats`, token),
         apiGet<UserRow[]>(`${apiBaseUrl}/api/users`, token),
+        apiGet<SchoolSettings>(`${apiBaseUrl}/api/settings/school`, token),
+        apiGet<AuditLogsResponse>(`${apiBaseUrl}/api/audit-logs?limit=1`, token),
       ]);
 
       setStats(statsJson);
       setUsers(Array.isArray(usersJson) ? usersJson : []);
+      setSchoolSettings(settingsJson);
+      setLatestAuditLog(
+        Array.isArray(auditJson.data) ? auditJson.data[0] ?? null : null
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       setError(message);
@@ -97,6 +132,19 @@ export default function OverviewPage({
     return <EmptyState message="No dashboard data found." />;
   }
 
+  const trimesterLabel =
+    schoolSettings?.defaultTrimester === "TRIMESTER_1"
+      ? "Trimester 1"
+      : schoolSettings?.defaultTrimester === "TRIMESTER_2"
+        ? "Trimester 2"
+        : schoolSettings?.defaultTrimester === "TRIMESTER_3"
+          ? "Trimester 3"
+          : "-";
+
+const latestAuditAction = latestAuditLog
+  ? latestAuditLog.action.replaceAll("_", " ")
+  : "-";
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -114,6 +162,53 @@ export default function OverviewPage({
           Refresh Overview
         </button>
       </header>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <p className="text-sm text-slate-500">Academic Year</p>
+    <p className="mt-2 text-2xl font-bold text-slate-900">
+      {schoolSettings?.academicYear || "-"}
+    </p>
+    <p className="mt-1 text-xs text-slate-400">
+      Current configured school year
+    </p>
+  </div>
+
+  <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <p className="text-sm text-slate-500">Current Trimester</p>
+    <p className="mt-2 text-2xl font-bold text-slate-900">
+      {trimesterLabel}
+    </p>
+    <p className="mt-1 text-xs text-slate-400">
+      Default grading/report period
+    </p>
+  </div>
+
+  <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <p className="text-sm text-slate-500">Platform Users</p>
+    <p className="mt-2 text-2xl font-bold text-slate-900">
+      {stats.totalUsers}
+    </p>
+    <p className="mt-1 text-xs text-slate-400">
+      {stats.totalStudents} students · {stats.totalTeachers} teachers ·{" "}
+      {stats.totalAdmins} admins
+    </p>
+  </div>
+
+  <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <p className="text-sm text-slate-500">Latest Audit Action</p>
+    <p className="mt-2 truncate text-lg font-bold text-slate-900">
+      {latestAuditAction}
+    </p>
+    <p className="mt-1 text-xs text-slate-400">
+      {latestAuditLog
+        ? `${latestAuditLog.entity} · ${new Date(
+            latestAuditLog.createdAt
+          ).toLocaleString()}`
+        : "No audit activity yet"}
+    </p>
+  </div>
+</section>
 
       <section className="grid gap-6 xl:grid-cols-3">
         <div className="rounded-2xl bg-white p-6 shadow-sm xl:col-span-3">

@@ -112,6 +112,7 @@ export default function SchoolSettingsPage() {
       setDefaultReportTo(toDateInputValue(data.defaultReportTo));
 
       setSuccess("School settings updated successfully.");
+      window.dispatchEvent(new Event("school-settings-updated"));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to update school settings."
