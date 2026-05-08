@@ -12,6 +12,7 @@ type UserRow = {
   firstName: string;
   lastName: string;
   role: Role;
+  profileImage?: string | null;
   createdAt?: string;
 };
 
@@ -58,6 +59,55 @@ const INITIAL_EDIT_FORM: UpdateUserPayload = {
   email: "",
 };
 
+function getInitials(user: UserRow) {
+  const first = user.firstName?.trim()?.[0] ?? "";
+  const last = user.lastName?.trim()?.[0] ?? "";
+  const initials = `${first}${last}`.trim();
+
+  return initials || user.email?.trim()?.[0]?.toUpperCase() || "?";
+}
+
+function getProfileImageUrl(apiBaseUrl: string, profileImage?: string | null) {
+  if (!profileImage) return "";
+
+  if (profileImage.startsWith("http://") || profileImage.startsWith("https://")) {
+    return profileImage;
+  }
+
+  return `${apiBaseUrl}${profileImage}`;
+}
+
+function UserAvatar({
+  apiBaseUrl,
+  user,
+  size = "md",
+}: {
+  apiBaseUrl: string;
+  user: UserRow;
+  size?: "sm" | "md";
+}) {
+  const imageUrl = getProfileImageUrl(apiBaseUrl, user.profileImage);
+  const sizeClass = size === "sm" ? "h-9 w-9 text-xs" : "h-12 w-12 text-sm";
+
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt={`${user.firstName} ${user.lastName}`}
+        className={`${sizeClass} rounded-full border object-cover shadow-sm`}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${sizeClass} flex items-center justify-center rounded-full bg-slate-900 font-semibold text-white shadow-sm`}
+    >
+      {getInitials(user)}
+    </div>
+  );
+}
+
 export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
@@ -75,6 +125,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploadingImageId, setUploadingImageId] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -250,6 +301,51 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     }
   };
 
+  const handleProfileImageUpload = async (userId: string, file: File | null) => {
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please choose a JPG, PNG, or WEBP image.");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Profile image must be smaller than 2MB.");
+      return;
+    }
+
+    try {
+      setUploadingImageId(userId);
+      setError("");
+
+      const formData = new FormData();
+      formData.append("profileImage", file);
+
+      const response = await fetch(`${apiBaseUrl}/api/users/${userId}/profile-image`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(json?.error || "Failed to upload profile image.");
+      }
+
+      await fetchUsers();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error.";
+      setError(message);
+    } finally {
+      setUploadingImageId(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     const confirmed = window.confirm("Are you sure you want to delete this user?");
     if (!confirmed) return;
@@ -278,7 +374,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
         <div>
           <h2 className="text-2xl font-bold">System Users</h2>
           <p className="text-sm text-slate-500">
-            Manage platform accounts and roles.
+            Manage platform accounts, roles, and profile photos.
           </p>
         </div>
 
@@ -400,7 +496,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
               </div>
             ) : null}
 
-            <div className="md:col-span-2 xl:col-span-3 flex gap-3">
+            <div className="flex gap-3 md:col-span-2 xl:col-span-3">
               <button
                 type="submit"
                 disabled={creating}
@@ -456,7 +552,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
               />
             </div>
 
-            <div className="md:col-span-2 xl:col-span-3 flex gap-3">
+            <div className="flex gap-3 md:col-span-2 xl:col-span-3">
               <button
                 type="submit"
                 disabled={updating}
@@ -499,7 +595,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
             <table className="min-w-full border-collapse">
               <thead>
                 <tr className="border-b text-left text-sm text-slate-500">
-                  <th className="px-3 py-3 font-medium">Name</th>
+                  <th className="px-3 py-3 font-medium">User</th>
                   <th className="px-3 py-3 font-medium">Email</th>
                   <th className="px-3 py-3 font-medium">Role</th>
                   <th className="px-3 py-3 font-medium">Created</th>
@@ -509,28 +605,64 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
               <tbody>
                 {users.map((user) => (
                   <tr key={user.id} className="border-b last:border-b-0">
-                    <td className="px-3 py-3 font-medium">
-                      {user.firstName} {user.lastName}
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar apiBaseUrl={apiBaseUrl} user={user} />
+                        <div>
+                          <p className="font-medium">
+                            {user.firstName} {user.lastName}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {user.profileImage ? "Profile image uploaded" : "No profile image"}
+                          </p>
+                        </div>
+                      </div>
                     </td>
+
                     <td className="px-3 py-3 text-sm text-slate-600">{user.email}</td>
+
                     <td className="px-3 py-3">
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
                         {user.role}
                       </span>
                     </td>
+
                     <td className="px-3 py-3 text-sm text-slate-600">
                       {user.createdAt
                         ? new Date(user.createdAt).toLocaleDateString()
                         : "-"}
                     </td>
+
                     <td className="px-3 py-3">
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <label
+                          className={`cursor-pointer rounded-lg border px-3 py-1 text-sm hover:bg-slate-50 ${
+                            uploadingImageId === user.id
+                              ? "pointer-events-none opacity-50"
+                              : ""
+                          }`}
+                        >
+                          {uploadingImageId === user.id ? "Uploading..." : "Upload Photo"}
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            disabled={uploadingImageId === user.id}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] ?? null;
+                              handleProfileImageUpload(user.id, file);
+                              event.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+
                         <button
                           onClick={() => startEdit(user)}
                           className="rounded-lg border px-3 py-1 text-sm hover:bg-slate-50"
                         >
                           Edit
                         </button>
+
                         <button
                           onClick={() => handleDelete(user.id)}
                           disabled={deletingId === user.id}
