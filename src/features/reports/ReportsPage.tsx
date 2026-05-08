@@ -134,6 +134,14 @@ const toDateInputValue = (value: string | null) => {
   return value.slice(0, 10);
 };
 
+function formatPeriodLabel(period: GradePeriod) {
+  if (period === "TRIMESTER_1") return "Trimester 1";
+  if (period === "TRIMESTER_2") return "Trimester 2";
+  if (period === "TRIMESTER_3") return "Trimester 3";
+
+  return period;
+}
+
 export default function ReportsPage() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
@@ -700,7 +708,7 @@ function exportAttendancePdf() {
     <html>
       <head>
         <meta charset="utf-8" />
-        <title>grades-report-${escapeHtml(safeClassName)}-${escapeHtml(gradesReport.period)}</title>
+        <title>grades-report-${escapeHtml(safeClassName)}-${escapeHtml(formatPeriodLabel(gradesReport.period))}</title>
         <style>
           * { box-sizing: border-box; }
 
@@ -788,7 +796,7 @@ function exportAttendancePdf() {
         <div class="header">
           <h1>Grades Report</h1>
           <div class="subtitle">
-            School ERP — ${escapeHtml(gradesReport.class.name)} — ${escapeHtml(selectedSubjectName)} — ${escapeHtml(gradesReport.period)}
+            School ERP — ${escapeHtml(gradesReport.class.name)} — ${escapeHtml(selectedSubjectName)} — ${escapeHtml(formatPeriodLabel(gradesReport.period))}
           </div>
         </div>
 
@@ -805,7 +813,7 @@ function exportAttendancePdf() {
 
           <div class="card">
             <div class="card-label">Period</div>
-            <div class="card-value">${escapeHtml(gradesReport.period)}</div>
+            <div class="card-value">${escapeHtml(formatPeriodLabel(gradesReport.period))}</div>
           </div>
 
           <div class="card">
@@ -969,7 +977,7 @@ function exportAttendancePdf() {
     <html>
       <head>
         <meta charset="utf-8" />
-        <title>student-report-${escapeHtml(studentName)}-${escapeHtml(studentReport.period)}</title>
+        <title>student-report-${escapeHtml(studentName)}-${escapeHtml(formatPeriodLabel(studentReport.period))}</title>
         <style>
           * { box-sizing: border-box; }
 
@@ -1057,7 +1065,7 @@ function exportAttendancePdf() {
         <div class="header">
           <h1>Student Full Report</h1>
           <div class="subtitle">
-            School ERP — ${escapeHtml(studentName)} — ${escapeHtml(studentReport.period)}
+            School ERP — ${escapeHtml(studentName)} — ${escapeHtml(formatPeriodLabel(studentReport.period))}
           </div>
         </div>
 
@@ -1079,7 +1087,7 @@ function exportAttendancePdf() {
 
           <div class="card">
             <div class="card-label">Period</div>
-            <div class="card-value">${escapeHtml(studentReport.period)}</div>
+            <div class="card-value">${escapeHtml(formatPeriodLabel(studentReport.period))}</div>
           </div>
 
           <div class="card">
@@ -1166,7 +1174,7 @@ function exportAttendancePdf() {
       ["Email", studentReport.student.email],
       ["Class", studentReport.class?.name ?? ""],
       ["Academic Year", studentReport.class?.academicYear ?? ""],
-      ["Period", studentReport.period],
+      ["Period", formatPeriodLabel(studentReport.period)],
       [
         "General Average",
         studentReport.generalAverage !== null
@@ -1358,7 +1366,7 @@ function exportAttendancePdf() {
 
           {report && (
             <>
-              <div className="grid gap-4 md:grid-cols-5">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
                 <SummaryCard
                   title="Class"
                   value={selectedClass?.name || report.class.name}
@@ -1367,6 +1375,7 @@ function exportAttendancePdf() {
                 <SummaryCard title="Present" value={report.summary.totalPresent} />
                 <SummaryCard title="Absent" value={report.summary.totalAbsent} />
                 <SummaryCard title="Late" value={report.summary.totalLate} />
+                <SummaryCard title="Total Records" value={report.summary.totalRecords} />
               </div>
 
               <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
@@ -1586,7 +1595,7 @@ function exportAttendancePdf() {
                     Grades Details
                   </h3>
                   <p className="text-sm text-slate-500">
-                    {gradesReport.class.name} — {gradesReport.period}
+                    {gradesReport.class.name} — {formatPeriodLabel(gradesReport.period)}
                   </p>
                 </div>
 
@@ -1789,7 +1798,7 @@ function exportAttendancePdf() {
                   </h3>
                   <p className="text-sm text-slate-500">
                     {studentReport.class?.name ?? "No class"} —{" "}
-                    {studentReport.period}
+                    {formatPeriodLabel(studentReport.period)}
                   </p>
                 </div>
 
