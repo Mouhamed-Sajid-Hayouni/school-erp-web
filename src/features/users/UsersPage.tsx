@@ -69,14 +69,18 @@ function getInitials(user: UserRow) {
   return initials || user.email?.trim()?.[0]?.toUpperCase() || "?";
 }
 
-function getProfileImageUrl(apiBaseUrl: string, profileImage?: string | null) {
+function getProfileImageUrl(apiBaseUrl: string, profileImage: string | null) {
   if (!profileImage) return "";
 
   if (profileImage.startsWith("http://") || profileImage.startsWith("https://")) {
     return profileImage;
   }
 
-  return `${apiBaseUrl}${profileImage}`;
+  const normalizedPath = profileImage.startsWith("/")
+    ? profileImage
+    : `/${profileImage}`;
+
+  return `${apiBaseUrl}${normalizedPath}`;
 }
 
 function UserAvatar({
@@ -88,15 +92,24 @@ function UserAvatar({
   user: UserRow;
   size?: "sm" | "md";
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
   const imageUrl = getProfileImageUrl(apiBaseUrl, user.profileImage);
   const sizeClass = size === "sm" ? "h-9 w-9 text-xs" : "h-12 w-12 text-sm";
 
-  if (imageUrl) {
+  const imageUrlWithCacheBust = imageUrl
+    ? `${imageUrl}${imageUrl.includes("?") ? "&" : "?"}v=${encodeURIComponent(
+        user.profileImage || ""
+      )}`
+    : "";
+
+  if (imageUrlWithCacheBust && !imageFailed) {
     return (
       <img
-        src={imageUrl}
+        src={imageUrlWithCacheBust}
         alt={`${user.firstName} ${user.lastName}`}
         className={`${sizeClass} rounded-full border object-cover shadow-sm`}
+        onError={() => setImageFailed(true)}
       />
     );
   }
@@ -104,6 +117,11 @@ function UserAvatar({
   return (
     <div
       className={`${sizeClass} flex items-center justify-center rounded-full bg-slate-900 font-semibold text-white shadow-sm`}
+      title={
+        user.profileImage
+          ? `Image path exists but could not load: ${user.profileImage}`
+          : "No profile image"
+      }
     >
       {getInitials(user)}
     </div>
