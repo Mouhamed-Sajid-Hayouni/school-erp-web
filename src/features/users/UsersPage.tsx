@@ -41,6 +41,7 @@ type UpdateUserPayload = {
   firstName: string;
   lastName: string;
   email: string;
+  password: string;
 };
 
 const INITIAL_CREATE_FORM: CreateUserPayload = {
@@ -57,6 +58,7 @@ const INITIAL_EDIT_FORM: UpdateUserPayload = {
   firstName: "",
   lastName: "",
   email: "",
+  password: "",
 };
 
 function getInitials(user: UserRow) {
@@ -258,48 +260,65 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      password: "",
     });
     setShowCreateForm(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!editingUserId) return;
+  if (!editingUserId) return;
 
-    if (
-      !editForm.firstName.trim() ||
-      !editForm.lastName.trim() ||
-      !editForm.email.trim()
-    ) {
-      setError("First name, last name, and email are required.");
-      return;
-    }
+  const trimmedPassword = editForm.password.trim();
 
-    try {
-      setUpdating(true);
-      setError("");
+  if (
+    !editForm.firstName.trim() ||
+    !editForm.lastName.trim() ||
+    !editForm.email.trim()
+  ) {
+    setError("First name, last name, and email are required.");
+    return;
+  }
 
-      await apiPut<{ message: string }, UpdateUserPayload>(
-        `${apiBaseUrl}/api/users/${editingUserId}`,
+  if (trimmedPassword && trimmedPassword.length < 10) {
+    setError("New password must be at least 10 characters long.");
+    return;
+  }
+
+  try {
+    setUpdating(true);
+    setError("");
+
+    await apiPut<
+      { message: string },
+      Pick<UpdateUserPayload, "firstName" | "lastName" | "email">
+    >(`${apiBaseUrl}/api/users/${editingUserId}`, token, {
+      firstName: editForm.firstName.trim(),
+      lastName: editForm.lastName.trim(),
+      email: editForm.email.trim(),
+    });
+
+    if (trimmedPassword) {
+      await apiPut<{ message: string }, { password: string }>(
+        `${apiBaseUrl}/api/users/${editingUserId}/password`,
         token,
         {
-          firstName: editForm.firstName.trim(),
-          lastName: editForm.lastName.trim(),
-          email: editForm.email.trim(),
+          password: trimmedPassword,
         }
       );
-
-      await fetchUsers();
-      resetEditForm();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-    } finally {
-      setUpdating(false);
     }
-  };
+
+    await fetchUsers();
+    resetEditForm();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unexpected error.";
+    setError(message);
+  } finally {
+    setUpdating(false);
+  }
+};
 
   const handleProfileImageUpload = async (userId: string, file: File | null) => {
     if (!file) return;
@@ -543,16 +562,32 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email</label>
-              <input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => handleEditChange("email", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-              />
-            </div>
+  <label className="text-sm font-medium text-slate-700">Email</label>
+  <input
+    type="email"
+    value={editForm.email}
+    onChange={(e) => handleEditChange("email", e.target.value)}
+    className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+  />
+</div>
 
-            <div className="flex gap-3 md:col-span-2 xl:col-span-3">
+<div className="space-y-2">
+  <label className="text-sm font-medium text-slate-700">
+    New Password
+  </label>
+  <input
+    type="password"
+    value={editForm.password}
+    onChange={(e) => handleEditChange("password", e.target.value)}
+    placeholder="Leave empty to keep current password"
+    className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+  />
+  <p className="text-xs text-slate-500">
+    Optional. Minimum 10 characters.
+  </p>
+</div>
+
+<div className="flex gap-3 md:col-span-2 xl:col-span-3">
               <button
                 type="submit"
                 disabled={updating}
