@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import MyPortalPage from "./features/portal/MyPortalPage";
 import UsersPage from "./features/users/UsersPage";
@@ -33,7 +33,7 @@ type TabKey =
   | "auditLogs";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_BASE_URL || "https://school-erp-api-3l16.onrender.com";
 
 export default function Dashboard() {
   const token = localStorage.getItem("token") || "";

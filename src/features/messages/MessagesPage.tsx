@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_BASE_URL || "https://school-erp-api-3l16.onrender.com";
 
 type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
 
@@ -314,7 +314,7 @@ export default function MessagesPage({
                 <option value="">Choose recipient</option>
                 {recipients.map((recipient) => (
                   <option key={recipient.id} value={recipient.id}>
-                    {formatUserName(recipient)} — {recipient.role}
+                    {formatUserName(recipient)} â€” {recipient.role}
                   </option>
                 ))}
               </select>

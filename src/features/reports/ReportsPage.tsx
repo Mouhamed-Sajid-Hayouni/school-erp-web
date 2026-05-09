@@ -127,7 +127,7 @@ type SchoolSettings = {
 };
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_BASE_URL || "https://school-erp-api-3l16.onrender.com";
 
 const toDateInputValue = (value: string | null) => {
   if (!value) return "";
@@ -1866,3 +1866,4 @@ function SummaryCard({
     </div>
   );
 }
+
