@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import MyPortalPage from "./features/portal/MyPortalPage";
 import UsersPage from "./features/users/UsersPage";
@@ -41,6 +41,25 @@ export default function Dashboard() {
   const firstName = localStorage.getItem("firstName") || "";
   const lastName = localStorage.getItem("lastName") || "";
 
+  const [profileImage, setProfileImage] = useState(
+  localStorage.getItem("profileImage") || ""
+);
+
+useEffect(() => {
+  const handleProfileImageUpdated = () => {
+    setProfileImage(localStorage.getItem("profileImage") || "");
+  };
+
+  window.addEventListener("profile-image-updated", handleProfileImageUpdated);
+
+  return () => {
+    window.removeEventListener(
+      "profile-image-updated",
+      handleProfileImageUpdated
+    );
+  };
+}, []);
+
   const defaultTab: TabKey =
     role === "STUDENT" || role === "PARENT" ? "portal" : "overview";
 
@@ -62,6 +81,8 @@ export default function Dashboard() {
     localStorage.removeItem("role");
     localStorage.removeItem("firstName");
     localStorage.removeItem("lastName");
+    localStorage.removeItem("profileImage");
+    localStorage.removeItem("userEmail");
     window.location.reload();
   };
 
@@ -181,6 +202,7 @@ export default function Dashboard() {
       onLogout={handleLogout}
       role={role}
       fullName={fullName}
+      profileImage={profileImage}
       apiBaseUrl={API_BASE_URL}
       token={token}
       onOpenMessages={handleOpenMessages}

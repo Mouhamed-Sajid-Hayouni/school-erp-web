@@ -40,6 +40,7 @@ type DashboardLayoutProps = {
   onLogout: () => void;
   role: string;
   fullName: string;
+  profileImage?: string;
   apiBaseUrl: string;
   token: string;
   onOpenMessages?: (conversationId?: string | null) => void;
@@ -158,6 +159,7 @@ export default function DashboardLayout({
   onLogout,
   role,
   fullName,
+  profileImage,
   apiBaseUrl,
   token,
   onOpenMessages,
@@ -175,6 +177,12 @@ export default function DashboardLayout({
       .join("") || "U";
 
   const visibleTabs = isTeacher ? teacherTabs : adminTabs;
+
+  const sidebarProfileImageUrl = profileImage
+    ? profileImage.startsWith("http://") || profileImage.startsWith("https://")
+      ? profileImage
+      : `${apiBaseUrl}${profileImage}`
+    : "";
 
   const [schoolName, setSchoolName] = useState("School ERP");
 const [schoolSubtitle, setSchoolSubtitle] = useState("Tunisian Public School");
@@ -221,9 +229,17 @@ useEffect(() => {
 
           <div className="border-b p-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
-                {initials}
-              </div>
+              {sidebarProfileImageUrl ? (
+  <img
+    src={sidebarProfileImageUrl}
+    alt={fullName}
+    className="h-11 w-11 rounded-full border object-cover shadow-sm"
+  />
+) : (
+  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+    {initials}
+  </div>
+)}
 
               <div>
                 <p className="font-medium">{fullName}</p>

@@ -39,6 +39,8 @@ function LoginScreen() {
       localStorage.setItem('role', data.role);
       localStorage.setItem('firstName', data.firstName || '');
       localStorage.setItem('lastName', data.lastName || '');
+      localStorage.setItem("profileImage", data.profileImage || "");
+      localStorage.setItem("userEmail", email.trim().toLowerCase());
 
       navigate('/dashboard', { replace: true });
     } catch {

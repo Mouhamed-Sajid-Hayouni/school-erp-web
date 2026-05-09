@@ -356,6 +356,16 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
         throw new Error(json?.error || "Failed to upload profile image.");
       }
 
+      const uploadedUser = json?.user;
+
+      if (
+        uploadedUser?.email &&
+        uploadedUser.email === localStorage.getItem("userEmail")
+      ) {
+        localStorage.setItem("profileImage", uploadedUser.profileImage || "");
+        window.dispatchEvent(new Event("profile-image-updated"));
+      }
+
       await fetchUsers();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
