@@ -91,7 +91,31 @@ type NotificationItem = {
 };
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("ar-TN");
+}
+
+function translateDay(value: string) {
+  const normalized = value.toUpperCase();
+
+  if (normalized === "MONDAY") return "الاثنين";
+  if (normalized === "TUESDAY") return "الثلاثاء";
+  if (normalized === "WEDNESDAY") return "الأربعاء";
+  if (normalized === "THURSDAY") return "الخميس";
+  if (normalized === "FRIDAY") return "الجمعة";
+  if (normalized === "SATURDAY") return "السبت";
+  if (normalized === "SUNDAY") return "الأحد";
+
+  return value;
+}
+
+function translateAudience(audience: AnnouncementItem["audience"]) {
+  if (audience === "ALL") return "الجميع";
+  if (audience === "STUDENTS") return "التلاميذ";
+  if (audience === "PARENTS") return "الأولياء";
+  if (audience === "TEACHERS") return "المعلّمون";
+  if (audience === "CLASS") return "قسم محدد";
+
+  return "غير محدد";
 }
 
 export default function TeacherOverviewPage({
@@ -119,7 +143,7 @@ export default function TeacherOverviewPage({
         setData(json);
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Failed to load teacher overview.";
+          err instanceof Error ? err.message : "تعذر تحميل لوحة قيادة المعلّم.";
         setError(message);
         showToast(message, "error");
       } finally {
@@ -164,7 +188,7 @@ export default function TeacherOverviewPage({
   );
 
   if (loading) {
-    return <LoadingState message="Loading teacher overview..." />;
+    return <LoadingState message="جارٍ تحميل لوحة قيادة المعلّم..." />;
   }
 
   if (error) {
@@ -172,36 +196,36 @@ export default function TeacherOverviewPage({
   }
 
   if (!data) {
-    return <EmptyState message="No teacher overview data found." />;
+    return <EmptyState message="لا توجد بيانات خاصة بالمعلّم." />;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <header className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="text-2xl font-bold">Teacher Overview</h2>
+        <h2 className="text-2xl font-bold">لوحة قيادة المعلّم</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Your schedule, assignments, announcements, and notifications in one place.
+          متابعة جدول الأوقات، الواجبات، الإعلانات والإشعارات في مكان واحد.
         </p>
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">My Schedule Entries</p>
+          <p className="text-sm text-slate-500">حصص جدول الأوقات</p>
           <p className="mt-2 text-2xl font-bold">{schedules.length}</p>
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">My Classes</p>
+          <p className="text-sm text-slate-500">الأقسام المرتبطة بي</p>
           <p className="mt-2 text-2xl font-bold">{myClassesCount}</p>
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">My Assignments</p>
+          <p className="text-sm text-slate-500">واجباتي</p>
           <p className="mt-2 text-2xl font-bold">{assignments.length}</p>
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Unread Notifications</p>
+          <p className="text-sm text-slate-500">الإشعارات غير المقروءة</p>
           <p className="mt-2 text-2xl font-bold">{unreadNotifications}</p>
         </div>
       </section>
@@ -209,17 +233,17 @@ export default function TeacherOverviewPage({
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">My Schedule</h3>
+            <h3 className="text-lg font-semibold">جدول أوقاتي</h3>
             <button
               onClick={() => onNavigate("schedules")}
               className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              Open Schedule
+              فتح جدول الأوقات
             </button>
           </div>
 
           {schedules.length === 0 ? (
-            <p className="text-sm text-slate-500">No schedule entries found.</p>
+            <p className="text-sm text-slate-500">لا توجد حصص في جدول الأوقات.</p>
           ) : (
             <div className="space-y-3">
               {schedules.slice(0, 5).map((item) => (
@@ -228,7 +252,7 @@ export default function TeacherOverviewPage({
                     {item.subject?.name || "-"}
                   </p>
                   <p className="mt-1 text-sm text-slate-500">
-                    {item.class?.name || "-"} • {item.dayOfWeek}
+                    {item.class?.name || "-"} • {translateDay(item.dayOfWeek)}
                   </p>
                   <p className="mt-1 text-sm text-slate-500">
                     {item.startTime} - {item.endTime}
@@ -241,17 +265,17 @@ export default function TeacherOverviewPage({
 
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">My Assignments</h3>
+            <h3 className="text-lg font-semibold">واجباتي</h3>
             <button
               onClick={() => onNavigate("assignments")}
               className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              Open Assignments
+              فتح الواجبات
             </button>
           </div>
 
           {upcomingAssignments.length === 0 ? (
-            <p className="text-sm text-slate-500">No assignments found.</p>
+            <p className="text-sm text-slate-500">لا توجد واجبات قادمة.</p>
           ) : (
             <div className="space-y-3">
               {upcomingAssignments.map((item) => (
@@ -261,10 +285,10 @@ export default function TeacherOverviewPage({
                     {item.class?.name || "-"} • {item.subject?.name || "-"}
                   </p>
                   <p className="mt-1 text-sm text-slate-500">
-                    Due: {formatDateTime(item.dueDate)}
+                    الأجل: {formatDateTime(item.dueDate)}
                   </p>
                   <p className="mt-1 text-sm text-slate-500">
-                    Submissions: {item._count?.submissions ?? 0}
+                    عدد التسليمات: {item._count?.submissions ?? 0}
                   </p>
                 </div>
               ))}
@@ -276,17 +300,17 @@ export default function TeacherOverviewPage({
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Latest Announcements</h3>
+            <h3 className="text-lg font-semibold">آخر الإعلانات</h3>
             <button
               onClick={() => onNavigate("announcements")}
               className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              Open Announcements
+              فتح الإعلانات
             </button>
           </div>
 
           {latestAnnouncements.length === 0 ? (
-            <p className="text-sm text-slate-500">No announcements found.</p>
+            <p className="text-sm text-slate-500">لا توجد إعلانات حاليًا.</p>
           ) : (
             <div className="space-y-3">
               {latestAnnouncements.map((item) => (
@@ -294,11 +318,11 @@ export default function TeacherOverviewPage({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium text-slate-900">{item.title}</p>
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                      {item.audience}
+                      {translateAudience(item.audience)}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-500">
-                    {item.class?.name || "General"} • {formatDateTime(item.createdAt)}
+                    {item.class?.name || "عام"} • {formatDateTime(item.createdAt)}
                   </p>
                 </div>
               ))}
@@ -308,47 +332,47 @@ export default function TeacherOverviewPage({
 
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Quick Actions</h3>
+            <h3 className="text-lg font-semibold">إجراءات سريعة</h3>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <button
               onClick={() => onNavigate("attendance")}
-              className="rounded-2xl border p-4 text-left hover:bg-slate-50"
+              className="rounded-2xl border p-4 text-right hover:bg-slate-50"
             >
-              <p className="font-semibold text-slate-900">Take Attendance</p>
+              <p className="font-semibold text-slate-900">تسجيل الحضور والغياب</p>
               <p className="mt-1 text-sm text-slate-500">
-                Mark present, absent, or late students.
+                تحديد التلاميذ الحاضرين أو الغائبين أو المتأخرين.
               </p>
             </button>
 
             <button
               onClick={() => onNavigate("grades")}
-              className="rounded-2xl border p-4 text-left hover:bg-slate-50"
+              className="rounded-2xl border p-4 text-right hover:bg-slate-50"
             >
-              <p className="font-semibold text-slate-900">Enter Grades</p>
+              <p className="font-semibold text-slate-900">إدخال الأعداد</p>
               <p className="mt-1 text-sm text-slate-500">
-                Record scores and comments by class and subject.
+                تسجيل الأعداد والملاحظات حسب القسم والمادة.
               </p>
             </button>
 
             <button
               onClick={() => onNavigate("assignments")}
-              className="rounded-2xl border p-4 text-left hover:bg-slate-50"
+              className="rounded-2xl border p-4 text-right hover:bg-slate-50"
             >
-              <p className="font-semibold text-slate-900">Manage Assignments</p>
+              <p className="font-semibold text-slate-900">إدارة الواجبات</p>
               <p className="mt-1 text-sm text-slate-500">
-                Create and update homework assignments.
+                إنشاء الواجبات وتحيينها ومتابعة آجالها.
               </p>
             </button>
 
             <button
               onClick={() => onNavigate("announcements")}
-              className="rounded-2xl border p-4 text-left hover:bg-slate-50"
+              className="rounded-2xl border p-4 text-right hover:bg-slate-50"
             >
-              <p className="font-semibold text-slate-900">View Announcements</p>
+              <p className="font-semibold text-slate-900">عرض الإعلانات</p>
               <p className="mt-1 text-sm text-slate-500">
-                Read school and teacher announcements.
+                قراءة إعلانات المدرسة والإعلانات الخاصة بالمعلّمين.
               </p>
             </button>
           </div>
