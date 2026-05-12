@@ -201,6 +201,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     setCreateForm((prev) => ({
       ...prev,
       [field]: value,
+      ...(field === "role" && value === "STUDENT" ? { password: "" } : {}),
       ...(field === "role" && value !== "STUDENT" ? { classId: "" } : {}),
       ...(field === "role" && value !== "PARENT" ? { studentUserId: "" } : {}),
     }));
@@ -218,9 +219,13 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       !createForm.firstName.trim() ||
       !createForm.lastName.trim() ||
       !createForm.email.trim() ||
-      !createForm.password.trim()
+      (createForm.role !== "STUDENT" && !createForm.password.trim())
     ) {
-      setError("First name, last name, email, and password are required.");
+      setError(
+        createForm.role === "STUDENT"
+          ? "First name, last name, and email are required."
+          : "First name, last name, email, and password are required."
+      );
       return false;
     }
 
@@ -251,7 +256,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
         token,
         {
           email: createForm.email.trim(),
-          password: createForm.password.trim(),
+          password: createForm.role === "STUDENT" ? "" : createForm.password.trim(),
           firstName: createForm.firstName.trim(),
           lastName: createForm.lastName.trim(),
           role: createForm.role,
@@ -475,15 +480,24 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Password</label>
-              <input
-                type="password"
-                value={createForm.password}
-                onChange={(e) => handleCreateChange("password", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-              />
-            </div>
+            {createForm.role !== "STUDENT" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Password</label>
+                <input
+                  type="password"
+                  value={createForm.password}
+                  onChange={(e) => handleCreateChange("password", e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                />
+                <p className="text-xs text-slate-500">
+                  Required for admin, teacher, and parent accounts.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-700">
+                Student records do not need a login password. Parents access the system instead.
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Role</label>
