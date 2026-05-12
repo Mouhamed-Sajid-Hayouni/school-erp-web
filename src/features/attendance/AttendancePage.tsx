@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -77,6 +77,54 @@ function getTodayLocalDate() {
   return `${year}-${month}-${day}`;
 }
 
+function translateDay(value: string) {
+  const normalized = value.toLowerCase();
+
+  if (normalized === "lundi" || normalized === "monday") return "الإثنين";
+  if (normalized === "mardi" || normalized === "tuesday") return "الثلاثاء";
+  if (normalized === "mercredi" || normalized === "wednesday") return "الأربعاء";
+  if (normalized === "jeudi" || normalized === "thursday") return "الخميس";
+  if (normalized === "vendredi" || normalized === "friday") return "الجمعة";
+  if (normalized === "samedi" || normalized === "saturday") return "السبت";
+  if (normalized === "dimanche" || normalized === "sunday") return "الأحد";
+
+  return value;
+}
+
+function translateStatus(status: AttendanceStatus) {
+  if (status === "PRESENT") return "حاضر";
+  if (status === "ABSENT") return "غائب";
+  if (status === "LATE") return "متأخر";
+
+  return status;
+}
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("select a schedule") || normalized.includes("schedule and date")) {
+    return "يرجى اختيار الحصة والتاريخ.";
+  }
+
+  if (normalized.includes("no students")) {
+    return "لا يوجد تلاميذ للحصة المختارة.";
+  }
+
+  if (normalized.includes("class students")) {
+    return "تعذر تحميل تلاميذ القسم.";
+  }
+
+  if (normalized.includes("attendance")) {
+    return "تعذر تحميل أو حفظ الحضور والغياب.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
+
 export default function AttendancePage({
   apiBaseUrl,
   token,
@@ -130,9 +178,10 @@ export default function AttendancePage({
         setSelectedScheduleId(list[0].id);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setLoadingSchedules(false);
     }
@@ -155,11 +204,11 @@ export default function AttendancePage({
 
       setClassStudents(Array.isArray(classJson?.students) ? classJson.students : []);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load class students.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "تعذر تحميل تلاميذ القسم.";
+      const translated = translateError(message);
+      setError(translated);
       setClassStudents([]);
-      showToast(message, "error");
+      showToast(translated, "error");
     }
   };
 
@@ -185,10 +234,11 @@ export default function AttendancePage({
 
       setStatuses(nextStatuses);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
       setStatuses({});
-      showToast(message, "error");
+      showToast(translated, "error");
     } finally {
       setLoadingAttendance(false);
     }
@@ -222,7 +272,7 @@ export default function AttendancePage({
       studentId: student.id,
       fullName:
         `${student.user?.firstName ?? ""} ${student.user?.lastName ?? ""}`.trim() ||
-        "Unknown Student",
+        "تلميذ غير معروف",
       email: student.user?.email ?? "",
       status: statuses[student.id] ?? "PRESENT",
     }));
@@ -253,14 +303,16 @@ export default function AttendancePage({
 
   const handleSaveAll = async () => {
     if (!selectedScheduleId || !selectedDate) {
-      setError("Please select a schedule and date.");
-      showToast("Please select a schedule and date.", "error");
+      const message = "يرجى اختيار الحصة والتاريخ.";
+      setError(message);
+      showToast(message, "error");
       return;
     }
 
     if (attendanceSheet.length === 0) {
-      setError("No students found for the selected schedule.");
-      showToast("No students found for the selected schedule.", "error");
+      const message = "لا يوجد تلاميذ للحصة المختارة.";
+      setError(message);
+      showToast(message, "error");
       return;
     }
 
@@ -284,49 +336,51 @@ export default function AttendancePage({
         )
       );
 
-      setSuccessMessage("Attendance saved successfully.");
-      showToast("Attendance saved successfully.", "success");
+      const message = "تم حفظ الحضور والغياب بنجاح.";
+      setSuccessMessage(message);
+      showToast(message, "success");
       await fetchAttendance(selectedScheduleId, selectedDate);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
       setSuccessMessage("");
-      showToast(message, "error");
+      showToast(translated, "error");
     } finally {
       setSaving(false);
     }
   };
 
   const scheduleLabel = (schedule: ScheduleRow) => {
-    const className = schedule.class?.name ?? "Unknown class";
-    const subjectName = schedule.subject?.name ?? "Unknown subject";
-    return `${className} • ${subjectName} • ${schedule.dayOfWeek} • ${schedule.startTime}-${schedule.endTime}`;
+    const className = schedule.class?.name ?? "قسم غير معروف";
+    const subjectName = schedule.subject?.name ?? "مادة غير معروفة";
+    return `${className} • ${subjectName} • ${translateDay(schedule.dayOfWeek)} • ${schedule.startTime}-${schedule.endTime}`;
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <header>
         <h2 className="text-2xl font-bold">
-          {isTeacher ? "My Attendance" : "Attendance"}
+          {isTeacher ? "الحضور والغياب الخاص بي" : "الحضور والغياب"}
         </h2>
         <p className="text-sm text-slate-500">
           {isTeacher
-            ? "Select one of your schedules and mark your students as present, absent, or late."
-            : "Select a schedule and date, then mark students as present, absent, or late."}
+            ? "اختر إحدى حصصك وحدد حالة التلاميذ: حاضر أو غائب أو متأخر."
+            : "اختر الحصة والتاريخ ثم حدد حالة التلاميذ: حاضر أو غائب أو متأخر."}
         </p>
       </header>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Schedule</label>
+            <label className="text-sm font-medium text-slate-700">الحصة</label>
             <select
               value={selectedScheduleId}
               onChange={(e) => setSelectedScheduleId(e.target.value)}
               className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
               disabled={loadingSchedules}
             >
-              <option value="">Select a schedule</option>
+              <option value="">اختر حصة</option>
               {schedules.map((schedule) => (
                 <option key={schedule.id} value={schedule.id}>
                   {scheduleLabel(schedule)}
@@ -336,12 +390,13 @@ export default function AttendancePage({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Date</label>
+            <label className="text-sm font-medium text-slate-700">التاريخ</label>
             <input
               type="date"
+              dir="ltr"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+              className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
             />
           </div>
 
@@ -350,7 +405,7 @@ export default function AttendancePage({
               onClick={fetchSchedules}
               className="w-full rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
-              {isTeacher ? "Refresh My Schedules" : "Refresh Schedules"}
+              {isTeacher ? "تحديث حصصي" : "تحديث الحصص"}
             </button>
           </div>
         </div>
@@ -371,22 +426,22 @@ export default function AttendancePage({
       {!loadingAttendance && attendanceSheet.length > 0 ? (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Total Students</p>
+            <p className="text-sm text-slate-500">مجموع التلاميذ</p>
             <p className="mt-2 text-2xl font-bold">{summary.total}</p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Present</p>
+            <p className="text-sm text-slate-500">الحاضرون</p>
             <p className="mt-2 text-2xl font-bold">{summary.present}</p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Absent</p>
+            <p className="text-sm text-slate-500">الغائبون</p>
             <p className="mt-2 text-2xl font-bold">{summary.absent}</p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Late</p>
+            <p className="text-sm text-slate-500">المتأخرون</p>
             <p className="mt-2 text-2xl font-bold">{summary.late}</p>
           </div>
         </section>
@@ -395,15 +450,15 @@ export default function AttendancePage({
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-lg font-semibold">Attendance Sheet</h3>
+            <h3 className="text-lg font-semibold">ورقة الحضور والغياب</h3>
             {selectedSchedule ? (
               <p className="text-sm text-slate-500">
-                {selectedSchedule.class?.name ?? "Unknown class"} •{" "}
-                {selectedSchedule.subject?.name ?? "Unknown subject"} •{" "}
-                {selectedDate}
+                {selectedSchedule.class?.name ?? "قسم غير معروف"} •{" "}
+                {selectedSchedule.subject?.name ?? "مادة غير معروفة"} •{" "}
+                <span dir="ltr">{selectedDate}</span>
               </p>
             ) : (
-              <p className="text-sm text-slate-500">Select a schedule to begin.</p>
+              <p className="text-sm text-slate-500">اختر حصة للبدء.</p>
             )}
           </div>
 
@@ -413,10 +468,10 @@ export default function AttendancePage({
               onChange={(e) => setStatusFilter(e.target.value as AttendanceFilter)}
               className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
             >
-              <option value="ALL">All statuses</option>
-              <option value="PRESENT">Present</option>
-              <option value="ABSENT">Absent</option>
-              <option value="LATE">Late</option>
+              <option value="ALL">كل الحالات</option>
+              <option value="PRESENT">حاضر</option>
+              <option value="ABSENT">غائب</option>
+              <option value="LATE">متأخر</option>
             </select>
 
             <button
@@ -424,38 +479,38 @@ export default function AttendancePage({
               disabled={saving || !selectedScheduleId || attendanceSheet.length === 0}
               className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save Attendance"}
+              {saving ? "جارٍ الحفظ..." : "حفظ الحضور والغياب"}
             </button>
           </div>
         </div>
 
         {loadingSchedules ? (
           <LoadingState
-            message={isTeacher ? "Loading your schedules..." : "Loading schedules..."}
+            message={isTeacher ? "جارٍ تحميل حصصك..." : "جارٍ تحميل الحصص..."}
           />
         ) : loadingAttendance ? (
-          <LoadingState message="Loading attendance records..." />
+          <LoadingState message="جارٍ تحميل سجلات الحضور والغياب..." />
         ) : !selectedScheduleId ? (
-          <EmptyState message="Please select a schedule." />
+          <EmptyState message="يرجى اختيار حصة." />
         ) : attendanceSheet.length === 0 ? (
-          <EmptyState message="No students found for the selected schedule." />
+          <EmptyState message="لا يوجد تلاميذ للحصة المختارة." />
         ) : filteredAttendanceSheet.length === 0 ? (
-          <EmptyState message="No students found for the current status filter." />
+          <EmptyState message="لا يوجد تلاميذ مطابقون لتصفية الحالة الحالية." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
               <thead>
-                <tr className="border-b text-left text-sm text-slate-500">
-                  <th className="px-3 py-3 font-medium">Student</th>
-                  <th className="px-3 py-3 font-medium">Email</th>
-                  <th className="px-3 py-3 font-medium">Status</th>
+                <tr className="border-b text-right text-sm text-slate-500">
+                  <th className="px-3 py-3 font-medium">التلميذ</th>
+                  <th className="px-3 py-3 font-medium">البريد الإلكتروني</th>
+                  <th className="px-3 py-3 font-medium">الحالة</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAttendanceSheet.map((row) => (
                   <tr key={row.studentId} className="border-b last:border-b-0">
                     <td className="px-3 py-3 font-medium">{row.fullName}</td>
-                    <td className="px-3 py-3 text-sm text-slate-600">
+                    <td className="px-3 py-3 text-left text-sm text-slate-600" dir="ltr">
                       {row.email || "-"}
                     </td>
                     <td className="px-3 py-3">
@@ -473,11 +528,11 @@ export default function AttendancePage({
                                 }
                                 className={`rounded-lg border px-3 py-1 text-sm font-medium transition ${
                                   isActive
-                                    ? "bg-slate-900 text-white border-slate-900"
+                                    ? "border-slate-900 bg-slate-900 text-white"
                                     : "hover:bg-slate-50"
                                 }`}
                               >
-                                {statusOption}
+                                {translateStatus(statusOption)}
                               </button>
                             );
                           }
