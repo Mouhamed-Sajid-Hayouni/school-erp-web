@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -67,12 +67,12 @@ type SchedulesPageProps = {
 };
 
 const DAY_OPTIONS = [
-  "Lundi",
-  "Mardi",
-  "Mercredi",
-  "Jeudi",
-  "Vendredi",
-  "Samedi",
+  { value: "Lundi", label: "الإثنين" },
+  { value: "Mardi", label: "الثلاثاء" },
+  { value: "Mercredi", label: "الأربعاء" },
+  { value: "Jeudi", label: "الخميس" },
+  { value: "Vendredi", label: "الجمعة" },
+  { value: "Samedi", label: "السبت" },
 ];
 
 const INITIAL_FORM = {
@@ -92,6 +92,42 @@ type SchedulePayload = {
   startTime: string;
   endTime: string;
 };
+
+function translateDay(value: string) {
+  const normalized = value.toLowerCase();
+
+  if (normalized === "lundi" || normalized === "monday") return "الإثنين";
+  if (normalized === "mardi" || normalized === "tuesday") return "الثلاثاء";
+  if (normalized === "mercredi" || normalized === "wednesday") return "الأربعاء";
+  if (normalized === "jeudi" || normalized === "thursday") return "الخميس";
+  if (normalized === "vendredi" || normalized === "friday") return "الجمعة";
+  if (normalized === "samedi" || normalized === "saturday") return "السبت";
+  if (normalized === "dimanche" || normalized === "sunday") return "الأحد";
+
+  return value;
+}
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("all schedule fields")) {
+    return "جميع حقول جدول الأوقات مطلوبة.";
+  }
+
+  if (normalized.includes("end time")) {
+    return "يجب أن يكون وقت النهاية بعد وقت البداية.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  if (normalized.includes("delete")) {
+    return "تعذر حذف الحصة.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
 
 export default function SchedulesPage({
   apiBaseUrl,
@@ -142,9 +178,10 @@ export default function SchedulesPage({
         setSchedules(Array.isArray(json) ? json : []);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setLoading(false);
     }
@@ -176,9 +213,10 @@ export default function SchedulesPage({
         setTeachers(Array.isArray(teachersJson) ? teachersJson : []);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setLoadingLookups(false);
     }
@@ -232,14 +270,16 @@ export default function SchedulesPage({
       !form.startTime ||
       !form.endTime
     ) {
-      setError("All schedule fields are required.");
-      showToast("All schedule fields are required.", "error");
+      const message = "جميع حقول جدول الأوقات مطلوبة.";
+      setError(message);
+      showToast(message, "error");
       return false;
     }
 
     if (form.startTime >= form.endTime) {
-      setError("End time must be later than start time.");
-      showToast("End time must be later than start time.", "error");
+      const message = "يجب أن يكون وقت النهاية بعد وقت البداية.";
+      setError(message);
+      showToast(message, "error");
       return false;
     }
 
@@ -268,11 +308,12 @@ export default function SchedulesPage({
 
       await fetchSchedules();
       resetForm();
-      showToast("Schedule created successfully.", "success");
+      showToast("تم إنشاء الحصة بنجاح.", "success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setCreating(false);
     }
@@ -293,17 +334,18 @@ export default function SchedulesPage({
 
       await fetchSchedules();
       resetForm();
-      showToast("Schedule updated successfully.", "success");
+      showToast("تم تعديل الحصة بنجاح.", "success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) return;
@@ -316,9 +358,7 @@ export default function SchedulesPage({
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this schedule?"
-    );
+    const confirmed = window.confirm("هل أنت متأكد من حذف هذه الحصة؟");
     if (!confirmed) return;
 
     try {
@@ -332,11 +372,12 @@ export default function SchedulesPage({
         resetForm();
       }
 
-      showToast("Schedule deleted successfully.", "success");
+      showToast("تم حذف الحصة بنجاح.", "success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setDeletingId(null);
     }
@@ -346,7 +387,7 @@ export default function SchedulesPage({
     const firstName = teacher.user?.firstName ?? "";
     const lastName = teacher.user?.lastName ?? "";
     const fullName = `${firstName} ${lastName}`.trim();
-    return fullName || teacher.user?.email || "Teacher";
+    return fullName || teacher.user?.email || "معلّم";
   };
 
   const filteredSchedules = useMemo(() => {
@@ -371,15 +412,15 @@ export default function SchedulesPage({
   }, [schedules, classFilter, subjectFilter, teacherFilter, isTeacher]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <header>
         <h2 className="text-2xl font-bold">
-          {isTeacher ? "My Schedule" : "Schedules"}
+          {isTeacher ? "جدول أوقاتي" : "جداول الأوقات"}
         </h2>
         <p className="text-sm text-slate-500">
           {isTeacher
-            ? "View your teaching timetable by class, subject, and day."
-            : "Manage class timetables, subjects, and teacher assignments."}
+            ? "عرض جدول التدريس حسب القسم والمادة واليوم."
+            : "إدارة جداول الأقسام والمواد وتوزيع المعلّمين."}
         </p>
       </header>
 
@@ -387,7 +428,7 @@ export default function SchedulesPage({
         <section className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-4">
             <h3 className="text-lg font-semibold">
-              {editingScheduleId ? "Edit Schedule" : "Create Schedule"}
+              {editingScheduleId ? "تعديل حصة" : "إنشاء حصة"}
             </h3>
 
             {editingScheduleId ? (
@@ -396,7 +437,7 @@ export default function SchedulesPage({
                 onClick={resetForm}
                 className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
               >
-                Cancel Edit
+                إلغاء التعديل
               </button>
             ) : null}
           </div>
@@ -404,17 +445,17 @@ export default function SchedulesPage({
           {error ? <ErrorState message={error} /> : null}
 
           {loadingLookups ? (
-            <LoadingState message="Loading classes, subjects, and teachers..." />
+            <LoadingState message="جارٍ تحميل الأقسام والمواد والمعلّمين..." />
           ) : (
             <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Class</label>
+                <label className="text-sm font-medium text-slate-700">القسم</label>
                 <select
                   value={form.classId}
                   onChange={(e) => handleChange("classId", e.target.value)}
                   className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
                 >
-                  <option value="">Select a class</option>
+                  <option value="">اختر قسمًا</option>
                   {classes.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -425,13 +466,13 @@ export default function SchedulesPage({
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Subject</label>
+                <label className="text-sm font-medium text-slate-700">المادة</label>
                 <select
                   value={form.subjectId}
                   onChange={(e) => handleChange("subjectId", e.target.value)}
                   className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
                 >
-                  <option value="">Select a subject</option>
+                  <option value="">اختر مادة</option>
                   {subjects.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -441,13 +482,13 @@ export default function SchedulesPage({
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Teacher</label>
+                <label className="text-sm font-medium text-slate-700">المعلّم</label>
                 <select
                   value={form.teacherId}
                   onChange={(e) => handleChange("teacherId", e.target.value)}
                   className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
                 >
-                  <option value="">Select a teacher</option>
+                  <option value="">اختر معلّمًا</option>
                   {teachers.map((item) => (
                     <option key={item.id} value={item.id}>
                       {teacherLabel(item)}
@@ -457,41 +498,47 @@ export default function SchedulesPage({
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Day</label>
+                <label className="text-sm font-medium text-slate-700">اليوم</label>
                 <select
                   value={form.dayOfWeek}
                   onChange={(e) => handleChange("dayOfWeek", e.target.value)}
                   className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
                 >
                   {DAY_OPTIONS.map((day) => (
-                    <option key={day} value={day}>
-                      {day}
+                    <option key={day.value} value={day.value}>
+                      {day.label}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Start Time</label>
+                <label className="text-sm font-medium text-slate-700">
+                  وقت البداية
+                </label>
                 <input
                   type="time"
+                  dir="ltr"
                   value={form.startTime}
                   onChange={(e) => handleChange("startTime", e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                  className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">End Time</label>
+                <label className="text-sm font-medium text-slate-700">
+                  وقت النهاية
+                </label>
                 <input
                   type="time"
+                  dir="ltr"
                   value={form.endTime}
                   onChange={(e) => handleChange("endTime", e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                  className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
                 />
               </div>
 
-              <div className="md:col-span-2 xl:col-span-3 flex gap-3">
+              <div className="flex gap-3 md:col-span-2 xl:col-span-3">
                 <button
                   type="submit"
                   disabled={creating || updating}
@@ -499,11 +546,11 @@ export default function SchedulesPage({
                 >
                   {editingScheduleId
                     ? updating
-                      ? "Updating..."
-                      : "Update Schedule"
+                      ? "جارٍ التعديل..."
+                      : "تعديل الحصة"
                     : creating
-                    ? "Creating..."
-                    : "Create Schedule"}
+                      ? "جارٍ الإنشاء..."
+                      : "إنشاء الحصة"}
                 </button>
 
                 {editingScheduleId ? (
@@ -512,7 +559,7 @@ export default function SchedulesPage({
                     onClick={resetForm}
                     className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
                   >
-                    Cancel
+                    إلغاء
                   </button>
                 ) : null}
               </div>
@@ -524,7 +571,7 @@ export default function SchedulesPage({
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <h3 className="text-lg font-semibold">
-            {isTeacher ? "My Schedule List" : "Schedule List"}
+            {isTeacher ? "قائمة جدول أوقاتي" : "قائمة جداول الأوقات"}
           </h3>
 
           <div className={`grid gap-3 ${isTeacher ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
@@ -533,7 +580,7 @@ export default function SchedulesPage({
               onChange={(e) => setClassFilter(e.target.value)}
               className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
             >
-              <option value="ALL">All classes</option>
+              <option value="ALL">كل الأقسام</option>
               {classes.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
@@ -546,7 +593,7 @@ export default function SchedulesPage({
               onChange={(e) => setSubjectFilter(e.target.value)}
               className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
             >
-              <option value="ALL">All subjects</option>
+              <option value="ALL">كل المواد</option>
               {subjects.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
@@ -560,7 +607,7 @@ export default function SchedulesPage({
                 onChange={(e) => setTeacherFilter(e.target.value)}
                 className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
               >
-                <option value="ALL">All teachers</option>
+                <option value="ALL">كل المعلّمين</option>
                 {teachers.map((item) => (
                   <option key={item.id} value={item.id}>
                     {teacherLabel(item)}
@@ -578,35 +625,37 @@ export default function SchedulesPage({
               }}
               className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
-              Reset / Refresh
+              إعادة التصفية / تحديث
             </button>
           </div>
         </div>
 
         {loading ? (
-          <LoadingState message={isTeacher ? "Loading your schedule..." : "Loading schedules..."} />
+          <LoadingState
+            message={isTeacher ? "جارٍ تحميل جدول أوقاتك..." : "جارٍ تحميل جداول الأوقات..."}
+          />
         ) : error ? (
           <ErrorState message={error} />
         ) : filteredSchedules.length === 0 ? (
           <EmptyState
             message={
               isTeacher
-                ? "No schedule entries found for your current filters."
-                : "No schedules found for the current filters."
+                ? "لا توجد حصص مطابقة للتصفية الحالية."
+                : "لا توجد جداول أوقات مطابقة للتصفية الحالية."
             }
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
               <thead>
-                <tr className="border-b text-left text-sm text-slate-500">
-                  <th className="px-3 py-3 font-medium">Class</th>
-                  <th className="px-3 py-3 font-medium">Subject</th>
-                  <th className="px-3 py-3 font-medium">Teacher</th>
-                  <th className="px-3 py-3 font-medium">Day</th>
-                  <th className="px-3 py-3 font-medium">Time</th>
+                <tr className="border-b text-right text-sm text-slate-500">
+                  <th className="px-3 py-3 font-medium">القسم</th>
+                  <th className="px-3 py-3 font-medium">المادة</th>
+                  <th className="px-3 py-3 font-medium">المعلّم</th>
+                  <th className="px-3 py-3 font-medium">اليوم</th>
+                  <th className="px-3 py-3 font-medium">التوقيت</th>
                   {!isTeacher ? (
-                    <th className="px-3 py-3 font-medium">Actions</th>
+                    <th className="px-3 py-3 font-medium">الإجراءات</th>
                   ) : null}
                 </tr>
               </thead>
@@ -619,18 +668,18 @@ export default function SchedulesPage({
                   return (
                     <tr key={item.id} className="border-b last:border-b-0">
                       <td className="px-3 py-3 font-medium">
-                        {item.class?.name ?? "Unknown class"}
+                        {item.class?.name ?? "قسم غير معروف"}
                       </td>
                       <td className="px-3 py-3 text-sm text-slate-600">
-                        {item.subject?.name ?? "Unknown subject"}
+                        {item.subject?.name ?? "مادة غير معروفة"}
                       </td>
                       <td className="px-3 py-3 text-sm text-slate-600">
-                        {teacherName || "Unknown teacher"}
+                        {teacherName || "معلّم غير معروف"}
                       </td>
                       <td className="px-3 py-3 text-sm text-slate-600">
-                        {item.dayOfWeek}
+                        {translateDay(item.dayOfWeek)}
                       </td>
-                      <td className="px-3 py-3 text-sm text-slate-600">
+                      <td className="px-3 py-3 text-sm text-slate-600" dir="ltr">
                         {item.startTime} - {item.endTime}
                       </td>
                       {!isTeacher ? (
@@ -640,14 +689,14 @@ export default function SchedulesPage({
                               onClick={() => handleEdit(item)}
                               className="rounded-lg border px-3 py-1 text-sm hover:bg-slate-50"
                             >
-                              Edit
+                              تعديل
                             </button>
                             <button
                               onClick={() => handleDelete(item.id)}
                               disabled={deletingId === item.id}
                               className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
                             >
-                              {deletingId === item.id ? "Deleting..." : "Delete"}
+                              {deletingId === item.id ? "جارٍ الحذف..." : "حذف"}
                             </button>
                           </div>
                         </td>
