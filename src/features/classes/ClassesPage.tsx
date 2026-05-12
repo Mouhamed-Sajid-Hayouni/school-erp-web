@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiDelete, apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -15,6 +15,24 @@ type ClassesPageProps = {
   apiBaseUrl: string;
   token: string;
 };
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("class name") || normalized.includes("academic year")) {
+    return "اسم القسم والسنة الدراسية مطلوبان.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  if (normalized.includes("delete")) {
+    return "تعذر حذف القسم.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
 
 export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
   const { showToast } = useToast();
@@ -40,9 +58,10 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
       const json = await apiGet<ClassRow[]>(`${apiBaseUrl}/api/classes`, token);
       setClasses(Array.isArray(json) ? json : []);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setLoading(false);
     }
@@ -68,15 +87,16 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
 
     const trimmedName = form.name.trim();
     const trimmedAcademicYear = form.academicYear.trim();
 
     if (!trimmedName || !trimmedAcademicYear) {
-      setError("Class name and academic year are required.");
-      showToast("Class name and academic year are required.", "error");
+      const message = "اسم القسم والسنة الدراسية مطلوبان.";
+      setError(message);
+      showToast(message, "error");
       return;
     }
 
@@ -97,18 +117,19 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
         name: "",
         academicYear: "",
       });
-      showToast("Class created successfully.", "success");
+      showToast("تم إنشاء القسم بنجاح.", "success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setCreating(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = window.confirm("Are you sure you want to delete this class?");
+    const confirmed = window.confirm("هل أنت متأكد من حذف هذا القسم؟");
     if (!confirmed) return;
 
     try {
@@ -117,48 +138,52 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
 
       await apiDelete(`${apiBaseUrl}/api/classes/${id}`, token);
       setClasses((prev) => prev.filter((item) => item.id !== id));
-      showToast("Class deleted successfully.", "success");
+      showToast("تم حذف القسم بنجاح.", "success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setDeletingId(null);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <header>
-        <h2 className="text-2xl font-bold">Classes</h2>
+        <h2 className="text-2xl font-bold">الأقسام</h2>
         <p className="text-sm text-slate-500">
-          Manage school classes and academic years.
+          إدارة الأقسام المدرسية والسنوات الدراسية.
         </p>
       </header>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold">Create Class</h3>
+        <h3 className="mb-4 text-lg font-semibold">إنشاء قسم</h3>
 
         <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Class Name</label>
+            <label className="text-sm font-medium text-slate-700">اسم القسم</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => handleChange("name", e.target.value)}
-              placeholder="e.g. 1ère Année A"
+              placeholder="مثال: السنة الأولى أ"
               className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Academic Year</label>
+            <label className="text-sm font-medium text-slate-700">
+              السنة الدراسية
+            </label>
             <input
               type="text"
+              dir="ltr"
               value={form.academicYear}
               onChange={(e) => handleChange("academicYear", e.target.value)}
-              placeholder="e.g. 2025-2026"
-              className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+              placeholder="2025-2026"
+              className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
             />
           </div>
 
@@ -168,7 +193,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
               disabled={creating}
               className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              {creating ? "Creating..." : "Create Class"}
+              {creating ? "جارٍ الإنشاء..." : "إنشاء القسم"}
             </button>
           </div>
         </form>
@@ -176,12 +201,12 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h3 className="text-lg font-semibold">Class List</h3>
+          <h3 className="text-lg font-semibold">قائمة الأقسام</h3>
 
           <div className="flex flex-col gap-3 md:flex-row">
             <input
               type="text"
-              placeholder="Search by class name or academic year..."
+              placeholder="البحث باسم القسم أو السنة الدراسية..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
@@ -191,25 +216,25 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
               onClick={fetchClasses}
               className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
-              Refresh
+              تحديث
             </button>
           </div>
         </div>
 
         {loading ? (
-          <LoadingState message="Loading classes..." />
+          <LoadingState message="جارٍ تحميل الأقسام..." />
         ) : error ? (
           <ErrorState message={error} />
         ) : filteredClasses.length === 0 ? (
-          <EmptyState message="No classes found for the current search." />
+          <EmptyState message="لا توجد أقسام مطابقة للبحث الحالي." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
               <thead>
-                <tr className="border-b text-left text-sm text-slate-500">
-                  <th className="px-3 py-3 font-medium">Class Name</th>
-                  <th className="px-3 py-3 font-medium">Academic Year</th>
-                  <th className="px-3 py-3 font-medium">Actions</th>
+                <tr className="border-b text-right text-sm text-slate-500">
+                  <th className="px-3 py-3 font-medium">اسم القسم</th>
+                  <th className="px-3 py-3 font-medium">السنة الدراسية</th>
+                  <th className="px-3 py-3 font-medium">الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -225,7 +250,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
                         disabled={deletingId === item.id}
                         className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
                       >
-                        {deletingId === item.id ? "Deleting..." : "Delete"}
+                        {deletingId === item.id ? "جارٍ الحذف..." : "حذف"}
                       </button>
                     </td>
                   </tr>
