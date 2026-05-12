@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
   Megaphone,
   FileText,
-  ArrowRight,
+  ArrowLeft,
   Users,
   School,
   BookOpen,
@@ -98,14 +98,24 @@ async function apiRequest<T>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error((data as { error?: string }).error || "Request failed");
+    throw new Error((data as { error?: string }).error || "تعذر تنفيذ الطلب.");
   }
 
   return data as T;
 }
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("ar-TN");
+}
+
+function translateAudience(audience: AnnouncementItem["audience"]) {
+  if (audience === "ALL") return "الجميع";
+  if (audience === "STUDENTS") return "التلاميذ";
+  if (audience === "PARENTS") return "الأولياء";
+  if (audience === "TEACHERS") return "المعلّمون";
+  if (audience === "CLASS") return "قسم محدد";
+
+  return "غير محدد";
 }
 
 function StatCard({
@@ -115,7 +125,7 @@ function StatCard({
 }: {
   label: string;
   value: string | number;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -137,7 +147,7 @@ function Panel({
   title: string;
   actionLabel?: string;
   onAction?: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -149,7 +159,7 @@ function Panel({
             className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             {actionLabel}
-            <ArrowRight className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4" />
           </button>
         ) : null}
       </div>
@@ -196,7 +206,7 @@ export default function AdminOverviewWidgets({
         setAssignments(assignmentsData);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to load overview widgets"
+          err instanceof Error ? err.message : "تعذر تحميل عناصر لوحة القيادة."
         );
       } finally {
         setLoading(false);
@@ -230,40 +240,40 @@ export default function AdminOverviewWidgets({
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <p className="text-sm text-slate-500">Loading overview widgets...</p>
+      <div className="rounded-2xl bg-white p-6 shadow-sm" dir="rtl">
+        <p className="text-sm text-slate-500">جارٍ تحميل عناصر لوحة القيادة...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+      <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" dir="rtl">
         {error}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Total Users"
+          label="إجمالي المستخدمين"
           value={stats?.totalUsers ?? 0}
           icon={<Users className="h-5 w-5" />}
         />
         <StatCard
-          label="Students"
+          label="التلاميذ"
           value={stats?.totalStudents ?? 0}
           icon={<School className="h-5 w-5" />}
         />
         <StatCard
-          label="Teachers"
+          label="المعلّمون"
           value={stats?.totalTeachers ?? 0}
           icon={<BookOpen className="h-5 w-5" />}
         />
         <StatCard
-          label="Unread Notifications"
+          label="الإشعارات غير المقروءة"
           value={unreadCount}
           icon={<Bell className="h-5 w-5" />}
         />
@@ -271,12 +281,12 @@ export default function AdminOverviewWidgets({
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Panel
-          title="Latest Announcements"
-          actionLabel="Open Announcements"
+          title="آخر الإعلانات"
+          actionLabel="فتح الإعلانات"
           onAction={() => onNavigate?.("announcements")}
         >
           {latestAnnouncements.length === 0 ? (
-            <p className="text-sm text-slate-500">No announcements found.</p>
+            <p className="text-sm text-slate-500">لا توجد إعلانات حاليًا.</p>
           ) : (
             <div className="space-y-3">
               {latestAnnouncements.map((item) => (
@@ -288,7 +298,7 @@ export default function AdminOverviewWidgets({
                     <Megaphone className="h-4 w-4 text-slate-500" />
                     <p className="font-medium text-slate-900">{item.title}</p>
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                      {item.audience}
+                      {translateAudience(item.audience)}
                     </span>
                     {item.class ? (
                       <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
@@ -307,12 +317,12 @@ export default function AdminOverviewWidgets({
         </Panel>
 
         <Panel
-          title="Upcoming Assignments"
-          actionLabel="Open Assignments"
+          title="الواجبات القادمة"
+          actionLabel="فتح الواجبات"
           onAction={() => onNavigate?.("assignments")}
         >
           {upcomingAssignments.length === 0 ? (
-            <p className="text-sm text-slate-500">No upcoming assignments.</p>
+            <p className="text-sm text-slate-500">لا توجد واجبات قادمة.</p>
           ) : (
             <div className="space-y-3">
               {upcomingAssignments.map((item) => (
@@ -330,12 +340,12 @@ export default function AdminOverviewWidgets({
                     ) : null}
                   </div>
                   <p className="text-sm text-slate-600">
-                    {item.description || "No description"}
+                    {item.description || "لا يوجد وصف."}
                   </p>
                   <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
-                    <p>Class: {item.class?.name || "-"}</p>
-                    <p>Due: {formatDateTime(item.dueDate)}</p>
-                    <p>Submissions: {item._count?.submissions ?? 0}</p>
+                    <p>القسم: {item.class?.name || "-"}</p>
+                    <p>الأجل: {formatDateTime(item.dueDate)}</p>
+                    <p>عدد التسليمات: {item._count?.submissions ?? 0}</p>
                   </div>
                 </div>
               ))}
@@ -344,45 +354,45 @@ export default function AdminOverviewWidgets({
         </Panel>
       </div>
 
-      <Panel title="Quick Actions">
+      <Panel title="إجراءات سريعة">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <button
             onClick={() => onNavigate?.("users")}
-            className="rounded-2xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50"
+            className="rounded-2xl border border-slate-200 bg-white p-4 text-right hover:bg-slate-50"
           >
-            <p className="font-semibold text-slate-900">Manage Users</p>
+            <p className="font-semibold text-slate-900">إدارة المستخدمين</p>
             <p className="mt-1 text-sm text-slate-500">
-              Create and maintain platform users
+              إنشاء حسابات المستخدمين وتحيين بياناتهم
             </p>
           </button>
 
           <button
             onClick={() => onNavigate?.("classes")}
-            className="rounded-2xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50"
+            className="rounded-2xl border border-slate-200 bg-white p-4 text-right hover:bg-slate-50"
           >
-            <p className="font-semibold text-slate-900">Manage Classes</p>
+            <p className="font-semibold text-slate-900">إدارة الأقسام</p>
             <p className="mt-1 text-sm text-slate-500">
-              Organize school classes and sections
+              تنظيم الأقسام والمستويات الدراسية
             </p>
           </button>
 
           <button
             onClick={() => onNavigate?.("assignments")}
-            className="rounded-2xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50"
+            className="rounded-2xl border border-slate-200 bg-white p-4 text-right hover:bg-slate-50"
           >
-            <p className="font-semibold text-slate-900">Manage Assignments</p>
+            <p className="font-semibold text-slate-900">إدارة الواجبات</p>
             <p className="mt-1 text-sm text-slate-500">
-              Create homework and track deadlines
+              إنشاء الواجبات ومتابعة آجالها
             </p>
           </button>
 
           <button
             onClick={() => onNavigate?.("announcements")}
-            className="rounded-2xl border border-slate-200 bg-white p-4 text-left hover:bg-slate-50"
+            className="rounded-2xl border border-slate-200 bg-white p-4 text-right hover:bg-slate-50"
           >
-            <p className="font-semibold text-slate-900">Manage Announcements</p>
+            <p className="font-semibold text-slate-900">إدارة الإعلانات</p>
             <p className="mt-1 text-sm text-slate-500">
-              Publish school-wide or class announcements
+              نشر إعلانات عامة أو موجهة للأقسام
             </p>
           </button>
         </div>
