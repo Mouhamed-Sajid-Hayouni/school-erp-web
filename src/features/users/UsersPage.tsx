@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -61,12 +61,54 @@ const INITIAL_EDIT_FORM: UpdateUserPayload = {
   password: "",
 };
 
+const roleLabels: Record<Role, string> = {
+  ADMIN: "مدير النظام",
+  TEACHER: "معلّم",
+  STUDENT: "تلميذ",
+  PARENT: "ولي",
+};
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("first name") || normalized.includes("last name")) {
+    return "الاسم واللقب والبريد الإلكتروني مطلوبة.";
+  }
+
+  if (normalized.includes("password")) {
+    return "يرجى التحقق من كلمة المرور.";
+  }
+
+  if (normalized.includes("class")) {
+    return "يرجى اختيار القسم المناسب.";
+  }
+
+  if (normalized.includes("student")) {
+    return "يرجى اختيار التلميذ المرتبط بهذا الولي.";
+  }
+
+  if (normalized.includes("profile image")) {
+    return "تعذر رفع صورة المستخدم.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
+
+function formatDate(value?: string) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("ar-TN");
+}
+
 function getInitials(user: UserRow) {
   const first = user.firstName?.trim()?.[0] ?? "";
   const last = user.lastName?.trim()?.[0] ?? "";
   const initials = `${first}${last}`.trim();
 
-  return initials || user.email?.trim()?.[0]?.toUpperCase() || "?";
+  return initials || user.email?.trim()?.[0]?.toUpperCase() || "؟";
 }
 
 function getProfileImageUrl(apiBaseUrl: string, profileImage: string | null) {
@@ -119,8 +161,8 @@ function UserAvatar({
       className={`${sizeClass} flex items-center justify-center rounded-full bg-slate-900 font-semibold text-white shadow-sm`}
       title={
         user.profileImage
-          ? `Image path exists but could not load: ${user.profileImage}`
-          : "No profile image"
+          ? `الصورة موجودة ولكن تعذر عرضها: ${user.profileImage}`
+          : "لا توجد صورة"
       }
     >
       {getInitials(user)}
@@ -139,7 +181,8 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
-  const [createForm, setCreateForm] = useState<CreateUserPayload>(INITIAL_CREATE_FORM);
+  const [createForm, setCreateForm] =
+    useState<CreateUserPayload>(INITIAL_CREATE_FORM);
   const [editForm, setEditForm] = useState<UpdateUserPayload>(INITIAL_EDIT_FORM);
 
   const [creating, setCreating] = useState(false);
@@ -155,8 +198,8 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       const json = await apiGet<UserRow[]>(`${apiBaseUrl}/api/users`, token);
       setUsers(Array.isArray(json) ? json : []);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      setError(translateError(message));
     } finally {
       setLoadingUsers(false);
     }
@@ -170,8 +213,8 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       const json = await apiGet<ClassOption[]>(`${apiBaseUrl}/api/classes`, token);
       setClasses(Array.isArray(json) ? json : []);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      setError(translateError(message));
     } finally {
       setLoadingClasses(false);
     }
@@ -223,26 +266,26 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     ) {
       setError(
         createForm.role === "STUDENT"
-          ? "First name, last name, and email are required."
-          : "First name, last name, email, and password are required."
+          ? "الاسم واللقب والبريد الإلكتروني مطلوبة."
+          : "الاسم واللقب والبريد الإلكتروني وكلمة المرور مطلوبة."
       );
       return false;
     }
 
     if (createForm.role === "STUDENT" && !createForm.classId) {
-      setError("Please select a class for the student.");
+      setError("يرجى اختيار قسم للتلميذ.");
       return false;
     }
 
     if (createForm.role === "PARENT" && !createForm.studentUserId) {
-      setError("Please select a student to link to this parent.");
+      setError("يرجى اختيار التلميذ المرتبط بهذا الولي.");
       return false;
     }
 
     return true;
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!validateCreateForm()) return;
@@ -269,8 +312,8 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       await fetchUsers();
       resetCreateForm();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      setError(translateError(message));
     } finally {
       setCreating(false);
     }
@@ -289,59 +332,59 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleUpdate = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleUpdate = async (e: FormEvent) => {
+    e.preventDefault();
 
-  if (!editingUserId) return;
+    if (!editingUserId) return;
 
-  const trimmedPassword = editForm.password.trim();
+    const trimmedPassword = editForm.password.trim();
 
-  if (
-    !editForm.firstName.trim() ||
-    !editForm.lastName.trim() ||
-    !editForm.email.trim()
-  ) {
-    setError("First name, last name, and email are required.");
-    return;
-  }
-
-  if (trimmedPassword && trimmedPassword.length < 10) {
-    setError("New password must be at least 10 characters long.");
-    return;
-  }
-
-  try {
-    setUpdating(true);
-    setError("");
-
-    await apiPut<
-      { message: string },
-      Pick<UpdateUserPayload, "firstName" | "lastName" | "email">
-    >(`${apiBaseUrl}/api/users/${editingUserId}`, token, {
-      firstName: editForm.firstName.trim(),
-      lastName: editForm.lastName.trim(),
-      email: editForm.email.trim(),
-    });
-
-    if (trimmedPassword) {
-      await apiPut<{ message: string }, { password: string }>(
-        `${apiBaseUrl}/api/users/${editingUserId}/password`,
-        token,
-        {
-          password: trimmedPassword,
-        }
-      );
+    if (
+      !editForm.firstName.trim() ||
+      !editForm.lastName.trim() ||
+      !editForm.email.trim()
+    ) {
+      setError("الاسم واللقب والبريد الإلكتروني مطلوبة.");
+      return;
     }
 
-    await fetchUsers();
-    resetEditForm();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected error.";
-    setError(message);
-  } finally {
-    setUpdating(false);
-  }
-};
+    if (trimmedPassword && trimmedPassword.length < 10) {
+      setError("يجب أن تحتوي كلمة المرور الجديدة على 10 أحرف على الأقل.");
+      return;
+    }
+
+    try {
+      setUpdating(true);
+      setError("");
+
+      await apiPut<
+        { message: string },
+        Pick<UpdateUserPayload, "firstName" | "lastName" | "email">
+      >(`${apiBaseUrl}/api/users/${editingUserId}`, token, {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        email: editForm.email.trim(),
+      });
+
+      if (trimmedPassword) {
+        await apiPut<{ message: string }, { password: string }>(
+          `${apiBaseUrl}/api/users/${editingUserId}/password`,
+          token,
+          {
+            password: trimmedPassword,
+          }
+        );
+      }
+
+      await fetchUsers();
+      resetEditForm();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      setError(translateError(message));
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const handleProfileImageUpload = async (userId: string, file: File | null) => {
     if (!file) return;
@@ -349,12 +392,12 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
     if (!allowedTypes.includes(file.type)) {
-      setError("Please choose a JPG, PNG, or WEBP image.");
+      setError("يرجى اختيار صورة بصيغة JPG أو PNG أو WEBP.");
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      setError("Profile image must be smaller than 2MB.");
+      setError("يجب أن يكون حجم صورة المستخدم أقل من 2MB.");
       return;
     }
 
@@ -376,7 +419,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       const json = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(json?.error || "Failed to upload profile image.");
+        throw new Error(json?.error || "تعذر رفع صورة المستخدم.");
       }
 
       const uploadedUser = json?.user;
@@ -391,15 +434,15 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
 
       await fetchUsers();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      setError(translateError(message));
     } finally {
       setUploadingImageId(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = window.confirm("Are you sure you want to delete this user?");
+    const confirmed = window.confirm("هل أنت متأكد من حذف هذا المستخدم؟");
     if (!confirmed) return;
 
     try {
@@ -413,20 +456,20 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
         resetEditForm();
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      setError(translateError(message));
     } finally {
       setDeletingId(null);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">System Users</h2>
+          <h2 className="text-2xl font-bold">المستخدمون</h2>
           <p className="text-sm text-slate-500">
-            Manage platform accounts, roles, and profile photos.
+            إدارة حسابات المنصة والأدوار وصور المستخدمين.
           </p>
         </div>
 
@@ -439,7 +482,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
           }}
           className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
         >
-          {showCreateForm ? "Close" : "Add User"}
+          {showCreateForm ? "إغلاق" : "إضافة مستخدم"}
         </button>
       </header>
 
@@ -447,11 +490,11 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
 
       {showCreateForm ? (
         <section className="rounded-2xl bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold">Create User</h3>
+          <h3 className="mb-4 text-lg font-semibold">إنشاء مستخدم</h3>
 
           <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">First Name</label>
+              <label className="text-sm font-medium text-slate-700">الاسم</label>
               <input
                 type="text"
                 value={createForm.firstName}
@@ -461,7 +504,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Last Name</label>
+              <label className="text-sm font-medium text-slate-700">اللقب</label>
               <input
                 type="text"
                 value={createForm.lastName}
@@ -471,36 +514,42 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email</label>
+              <label className="text-sm font-medium text-slate-700">
+                البريد الإلكتروني
+              </label>
               <input
                 type="email"
+                dir="ltr"
                 value={createForm.email}
                 onChange={(e) => handleCreateChange("email", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
               />
             </div>
 
             {createForm.role !== "STUDENT" ? (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Password</label>
+                <label className="text-sm font-medium text-slate-700">
+                  كلمة المرور
+                </label>
                 <input
                   type="password"
+                  dir="ltr"
                   value={createForm.password}
                   onChange={(e) => handleCreateChange("password", e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                  className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
                 />
                 <p className="text-xs text-slate-500">
-                  Required for admin, teacher, and parent accounts.
+                  مطلوبة لحسابات المدير والمعلّم والولي.
                 </p>
               </div>
             ) : (
               <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-700">
-                Student records do not need a login password. Parents access the system instead.
+                لا يحتاج سجل التلميذ إلى كلمة مرور. الولي هو من يستعمل النظام.
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Role</label>
+              <label className="text-sm font-medium text-slate-700">الدور</label>
               <select
                 value={createForm.role}
                 onChange={(e) =>
@@ -508,23 +557,23 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                 }
                 className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
               >
-                <option value="ADMIN">ADMIN</option>
-                <option value="TEACHER">TEACHER</option>
-                <option value="STUDENT">STUDENT</option>
-                <option value="PARENT">PARENT</option>
+                <option value="ADMIN">مدير النظام</option>
+                <option value="TEACHER">معلّم</option>
+                <option value="STUDENT">تلميذ</option>
+                <option value="PARENT">ولي</option>
               </select>
             </div>
 
             {createForm.role === "STUDENT" ? (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Class</label>
+                <label className="text-sm font-medium text-slate-700">القسم</label>
                 <select
                   value={createForm.classId}
                   onChange={(e) => handleCreateChange("classId", e.target.value)}
                   className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
                   disabled={loadingClasses}
                 >
-                  <option value="">Select a class</option>
+                  <option value="">اختر قسمًا</option>
                   {classes.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -538,7 +587,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
             {createForm.role === "PARENT" ? (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  Link to Student
+                  ربط الولي بتلميذ
                 </label>
                 <select
                   value={createForm.studentUserId}
@@ -547,7 +596,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                   }
                   className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
                 >
-                  <option value="">Select a student</option>
+                  <option value="">اختر تلميذًا</option>
                   {studentUsers.map((student) => (
                     <option key={student.id} value={student.id}>
                       {student.firstName} {student.lastName} — {student.email}
@@ -563,7 +612,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                 disabled={creating}
                 className="flex-1 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
               >
-                {creating ? "Creating..." : "Create User"}
+                {creating ? "جارٍ الإنشاء..." : "إنشاء المستخدم"}
               </button>
 
               <button
@@ -571,7 +620,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                 onClick={resetCreateForm}
                 className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
               >
-                Cancel
+                إلغاء
               </button>
             </div>
           </form>
@@ -580,11 +629,11 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
 
       {editingUserId ? (
         <section className="rounded-2xl bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold">Edit User</h3>
+          <h3 className="mb-4 text-lg font-semibold">تعديل المستخدم</h3>
 
           <form onSubmit={handleUpdate} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">First Name</label>
+              <label className="text-sm font-medium text-slate-700">الاسم</label>
               <input
                 type="text"
                 value={editForm.firstName}
@@ -594,7 +643,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Last Name</label>
+              <label className="text-sm font-medium text-slate-700">اللقب</label>
               <input
                 type="text"
                 value={editForm.lastName}
@@ -604,38 +653,42 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
             </div>
 
             <div className="space-y-2">
-  <label className="text-sm font-medium text-slate-700">Email</label>
-  <input
-    type="email"
-    value={editForm.email}
-    onChange={(e) => handleEditChange("email", e.target.value)}
-    className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-  />
-</div>
+              <label className="text-sm font-medium text-slate-700">
+                البريد الإلكتروني
+              </label>
+              <input
+                type="email"
+                dir="ltr"
+                value={editForm.email}
+                onChange={(e) => handleEditChange("email", e.target.value)}
+                className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
+              />
+            </div>
 
-<div className="space-y-2">
-  <label className="text-sm font-medium text-slate-700">
-    New Password
-  </label>
-  <input
-    type="password"
-    value={editForm.password}
-    onChange={(e) => handleEditChange("password", e.target.value)}
-    placeholder="Leave empty to keep current password"
-    className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-  />
-  <p className="text-xs text-slate-500">
-    Optional. Minimum 10 characters.
-  </p>
-</div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">
+                كلمة مرور جديدة
+              </label>
+              <input
+                type="password"
+                dir="ltr"
+                value={editForm.password}
+                onChange={(e) => handleEditChange("password", e.target.value)}
+                placeholder="اتركها فارغة للحفاظ على كلمة المرور الحالية"
+                className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
+              />
+              <p className="text-xs text-slate-500">
+                اختيارية. الحد الأدنى 10 أحرف.
+              </p>
+            </div>
 
-<div className="flex gap-3 md:col-span-2 xl:col-span-3">
+            <div className="flex gap-3 md:col-span-2 xl:col-span-3">
               <button
                 type="submit"
                 disabled={updating}
                 className="flex-1 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
               >
-                {updating ? "Saving..." : "Save Changes"}
+                {updating ? "جارٍ الحفظ..." : "حفظ التغييرات"}
               </button>
 
               <button
@@ -643,7 +696,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                 onClick={resetEditForm}
                 className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
               >
-                Cancel
+                إلغاء
               </button>
             </div>
           </form>
@@ -652,31 +705,31 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-4">
-          <h3 className="text-lg font-semibold">User List</h3>
+          <h3 className="text-lg font-semibold">قائمة المستخدمين</h3>
           <button
             onClick={fetchUsers}
             className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
           >
-            Refresh
+            تحديث
           </button>
         </div>
 
         {loadingUsers ? (
-          <LoadingState message="Loading users..." />
+          <LoadingState message="جارٍ تحميل المستخدمين..." />
         ) : error ? (
           <ErrorState message={error} />
         ) : users.length === 0 ? (
-          <EmptyState message="No users found." />
+          <EmptyState message="لا يوجد مستخدمون." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
               <thead>
-                <tr className="border-b text-left text-sm text-slate-500">
-                  <th className="px-3 py-3 font-medium">User</th>
-                  <th className="px-3 py-3 font-medium">Email</th>
-                  <th className="px-3 py-3 font-medium">Role</th>
-                  <th className="px-3 py-3 font-medium">Created</th>
-                  <th className="px-3 py-3 font-medium">Actions</th>
+                <tr className="border-b text-right text-sm text-slate-500">
+                  <th className="px-3 py-3 font-medium">المستخدم</th>
+                  <th className="px-3 py-3 font-medium">البريد الإلكتروني</th>
+                  <th className="px-3 py-3 font-medium">الدور</th>
+                  <th className="px-3 py-3 font-medium">تاريخ الإنشاء</th>
+                  <th className="px-3 py-3 font-medium">الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -690,24 +743,26 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                             {user.firstName} {user.lastName}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {user.profileImage ? "Profile image uploaded" : "No profile image"}
+                            {user.profileImage
+                              ? "تم رفع صورة المستخدم"
+                              : "لا توجد صورة"}
                           </p>
                         </div>
                       </div>
                     </td>
 
-                    <td className="px-3 py-3 text-sm text-slate-600">{user.email}</td>
+                    <td className="px-3 py-3 text-left text-sm text-slate-600" dir="ltr">
+                      {user.email}
+                    </td>
 
                     <td className="px-3 py-3">
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
-                        {user.role}
+                        {roleLabels[user.role]}
                       </span>
                     </td>
 
                     <td className="px-3 py-3 text-sm text-slate-600">
-                      {user.createdAt
-                        ? new Date(user.createdAt).toLocaleDateString()
-                        : "-"}
+                      {formatDate(user.createdAt)}
                     </td>
 
                     <td className="px-3 py-3">
@@ -719,7 +774,9 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                               : ""
                           }`}
                         >
-                          {uploadingImageId === user.id ? "Uploading..." : "Upload Photo"}
+                          {uploadingImageId === user.id
+                            ? "جارٍ الرفع..."
+                            : "رفع صورة"}
                           <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
@@ -737,7 +794,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                           onClick={() => startEdit(user)}
                           className="rounded-lg border px-3 py-1 text-sm hover:bg-slate-50"
                         >
-                          Edit
+                          تعديل
                         </button>
 
                         <button
@@ -745,7 +802,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                           disabled={deletingId === user.id}
                           className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
                         >
-                          {deletingId === user.id ? "Deleting..." : "Delete"}
+                          {deletingId === user.id ? "جارٍ الحذف..." : "حذف"}
                         </button>
                       </div>
                     </td>
