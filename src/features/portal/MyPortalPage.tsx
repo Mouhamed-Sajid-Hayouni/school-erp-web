@@ -75,13 +75,67 @@ type MyPortalPageProps = {
 };
 
 const PERIOD_OPTIONS: { value: GradePeriod; label: string }[] = [
-  { value: "TRIMESTER_1", label: "Trimester 1" },
-  { value: "TRIMESTER_2", label: "Trimester 2" },
-  { value: "TRIMESTER_3", label: "Trimester 3" },
+  { value: "TRIMESTER_1", label: "الثلاثي الأول" },
+  { value: "TRIMESTER_2", label: "الثلاثي الثاني" },
+  { value: "TRIMESTER_3", label: "الثلاثي الثالث" },
 ];
 
 function isParentPortalResponse(data: PortalResponse | null): data is ParentPortalResponse {
   return !!data && Array.isArray((data as ParentPortalResponse).children);
+}
+
+function translateDay(value?: string) {
+  if (!value) return "";
+
+  const normalized = value.toLowerCase();
+
+  if (normalized === "monday" || normalized === "lundi") return "الإثنين";
+  if (normalized === "tuesday" || normalized === "mardi") return "الثلاثاء";
+  if (normalized === "wednesday" || normalized === "mercredi") return "الأربعاء";
+  if (normalized === "thursday" || normalized === "jeudi") return "الخميس";
+  if (normalized === "friday" || normalized === "vendredi") return "الجمعة";
+  if (normalized === "saturday" || normalized === "samedi") return "السبت";
+  if (normalized === "sunday" || normalized === "dimanche") return "الأحد";
+
+  return value;
+}
+
+function translateAttendanceStatus(status: string) {
+  if (status === "PRESENT") return "حاضر";
+  if (status === "ABSENT") return "غائب";
+  if (status === "LATE") return "متأخر";
+
+  return status;
+}
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("student data")) {
+    return "بيانات التلميذ غير متوفرة لتصدير بطاقة الأعداد.";
+  }
+
+  if (normalized.includes("bulletin")) {
+    return "بيانات بطاقة الأعداد غير مكتملة.";
+  }
+
+  if (normalized.includes("export")) {
+    return "تعذر تصدير بطاقة الأعداد بصيغة PDF.";
+  }
+
+  if (normalized.includes("portal")) {
+    return "تعذر تحميل فضاء المستخدم.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("ar-TN");
 }
 
 function buildStudentBulletinFromPortal(
@@ -110,9 +164,9 @@ function buildStudentBulletinFromPortal(
   for (const grade of grades) {
     const subjectId =
       grade.subjectId ??
-      `${grade.subject?.name ?? "Unknown Subject"}-${grade.id}`;
+      `${grade.subject?.name ?? "مادة غير معروفة"}-${grade.id}`;
 
-    const subjectName = grade.subject?.name ?? "Unknown Subject";
+    const subjectName = grade.subject?.name ?? "مادة غير معروفة";
     const coefficient = grade.subject?.coefficient ?? 1;
 
     const existing = groups.get(subjectId);
@@ -197,25 +251,25 @@ function SummaryCards({
 
   const cards = [
     {
-      label: "Weighted Average",
+      label: "المعدل العام الموزون",
       value:
         summary?.generalAverage !== null && summary?.generalAverage !== undefined
           ? summary.generalAverage.toFixed(2)
           : "-",
     },
     {
-      label: "Best Score",
+      label: "أفضل عدد",
       value:
         summary?.bestScore !== null && summary?.bestScore !== undefined
           ? `${summary.bestScore.toFixed(2)}/20`
           : "-",
     },
     {
-      label: "Grades Count",
+      label: "عدد الأعداد",
       value: String(summary?.gradesCount ?? 0),
     },
     {
-      label: "Total Absences",
+      label: "مجموع الغيابات",
       value: String(absences),
     },
   ];
@@ -223,7 +277,7 @@ function SummaryCards({
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => (
-        <div key={card.label} className="rounded-2xl bg-white p-5 shadow-sm">
+        <div key={card.label} className="rounded-2xl bg-white p-5 text-right shadow-sm" dir="rtl">
           <p className="text-sm text-slate-500">{card.label}</p>
           <p className="mt-2 text-2xl font-bold">{card.value}</p>
         </div>
@@ -240,14 +294,14 @@ function SubjectAverageSection({
   loading: boolean;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <h3 className="mb-4 text-lg font-semibold">Subject Averages</h3>
+    <div className="rounded-2xl bg-white p-6 text-right shadow-sm" dir="rtl">
+      <h3 className="mb-4 text-lg font-semibold">معدلات المواد</h3>
 
       {loading ? (
-        <LoadingState message="Loading weighted academic summary..." />
+        <LoadingState message="جارٍ تحميل الملخص الأكاديمي الموزون..." />
       ) : !summary || summary.subjects.length === 0 ? (
         <p className="text-sm text-slate-500">
-          No subject averages available for this period.
+          لا توجد معدلات مواد متوفرة لهذا الثلاثي.
         </p>
       ) : (
         <div className="space-y-3">
@@ -260,8 +314,7 @@ function SubjectAverageSection({
                 </span>
               </div>
               <p className="mt-1 text-sm text-slate-500">
-                Coefficient {item.coefficient} • Based on {item.gradesCount} grade
-                {item.gradesCount > 1 ? "s" : ""}
+                المعامل {item.coefficient} • اعتمادًا على {item.gradesCount} عدد
               </p>
             </div>
           ))}
@@ -273,18 +326,19 @@ function SubjectAverageSection({
 
 function TimetableSection({ schedule }: { schedule: PortalSchedule[] }) {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <h3 className="mb-4 text-lg font-semibold">Weekly Timetable</h3>
+    <div className="rounded-2xl bg-white p-6 text-right shadow-sm" dir="rtl">
+      <h3 className="mb-4 text-lg font-semibold">جدول الأوقات الأسبوعي</h3>
 
       <div className="space-y-3">
         {schedule.length === 0 ? (
-          <p className="text-sm text-slate-500">No timetable available.</p>
+          <p className="text-sm text-slate-500">لا يوجد جدول أوقات متوفر.</p>
         ) : (
           schedule.map((item) => (
             <div key={item.id} className="rounded-xl border p-3">
-              <p className="font-medium">{item.subject?.name ?? "Subject"}</p>
+              <p className="font-medium">{item.subject?.name ?? "مادة"}</p>
               <p className="text-sm text-slate-500">
-                {item.dayOfWeek} • {item.startTime} - {item.endTime}
+                {translateDay(item.dayOfWeek)} •{" "}
+                <span dir="ltr">{item.startTime} - {item.endTime}</span>
               </p>
             </div>
           ))
@@ -306,19 +360,19 @@ function GradesSection({
   );
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <h3 className="mb-4 text-lg font-semibold">Grades</h3>
+    <div className="rounded-2xl bg-white p-6 text-right shadow-sm" dir="rtl">
+      <h3 className="mb-4 text-lg font-semibold">الأعداد</h3>
 
       <div className="space-y-3">
         {filteredGrades.length === 0 ? (
           <p className="text-sm text-slate-500">
-            No grades available for this period.
+            لا توجد أعداد متوفرة لهذا الثلاثي.
           </p>
         ) : (
           filteredGrades.map((grade) => (
             <div key={grade.id} className="rounded-xl border p-3">
               <div className="flex items-center justify-between gap-4">
-                <p className="font-medium">{grade.subject?.name ?? "Subject"}</p>
+                <p className="font-medium">{grade.subject?.name ?? "مادة"}</p>
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold">
                   {grade.score}/20
                 </span>
@@ -337,28 +391,30 @@ function GradesSection({
 
 function AttendanceSection({
   attendances,
-  title = "Absences / Attendance",
+  title = "الغيابات / الحضور",
 }: {
   attendances: PortalAttendance[];
   title?: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
+    <div className="rounded-2xl bg-white p-6 text-right shadow-sm" dir="rtl">
       <h3 className="mb-4 text-lg font-semibold">{title}</h3>
 
       <div className="space-y-3">
         {attendances.length === 0 ? (
-          <p className="text-sm text-slate-500">No attendance records.</p>
+          <p className="text-sm text-slate-500">لا توجد سجلات حضور وغياب.</p>
         ) : (
           attendances.map((attendance) => (
             <div key={attendance.id} className="rounded-xl border p-3">
               <p className="font-medium">
-                {attendance.schedule?.subject?.name ?? "Subject"}
+                {attendance.schedule?.subject?.name ?? "مادة"}
               </p>
               <p className="text-sm text-slate-500">
-                {new Date(attendance.date).toLocaleDateString()} •{" "}
-                {attendance.status}
+                {formatDate(attendance.date)} • {translateAttendanceStatus(attendance.status)}
               </p>
+              {attendance.remarks ? (
+                <p className="mt-2 text-sm text-slate-600">{attendance.remarks}</p>
+              ) : null}
             </div>
           ))
         )}
@@ -388,8 +444,8 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
         setData(json);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unexpected error.";
-        setPortalError(message);
+        const message = err instanceof Error ? err.message : "تعذر تحميل فضاء المستخدم.";
+        setPortalError(translateError(message));
       } finally {
         setLoading(false);
       }
@@ -455,13 +511,13 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
       await exportBulletinPdf(bulletin);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to export bulletin PDF.";
-      setSummaryError(message);
+        err instanceof Error ? err.message : "تعذر تصدير بطاقة الأعداد بصيغة PDF.";
+      setSummaryError(translateError(message));
     }
   };
 
   if (loading) {
-    return <LoadingState message="Loading portal..." />;
+    return <LoadingState message="جارٍ تحميل الفضاء..." />;
   }
 
   if (portalError) {
@@ -469,7 +525,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   }
 
   if (!data) {
-    return <EmptyState message="No portal data found." />;
+    return <EmptyState message="لا توجد بيانات للفضاء." />;
   }
 
   if (isParentResponse) {
@@ -477,22 +533,22 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
     const children = parentData.children ?? [];
 
     if (children.length === 0) {
-      return <EmptyState message="No linked children found for this parent account." />;
+      return <EmptyState message="لا يوجد أبناء مرتبطون بحساب هذا الولي." />;
     }
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 text-right" dir="rtl">
         <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-2xl font-bold">Parent Portal</h2>
+            <h2 className="text-2xl font-bold">فضاء الولي</h2>
             <p className="text-sm text-slate-500">
-              View your children’s timetable, weighted averages, grades, and attendance.
+              متابعة جدول الأوقات والمعدلات الموزونة والأعداد والحضور والغياب للأبناء.
             </p>
           </div>
 
           <div className="w-full md:w-56">
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              Period
+              الثلاثي
             </label>
             <select
               value={period}
@@ -520,7 +576,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
           const attendances = child.attendances ?? [];
           const fullName =
             `${child.user?.firstName ?? ""} ${child.user?.lastName ?? ""}`.trim() ||
-            "Student";
+            "تلميذ";
 
           const summary = child.id ? childSummaries[child.id] ?? null : null;
           const targetStudentId = child.id ?? "";
@@ -532,7 +588,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
                   <div>
                     <h3 className="text-lg font-semibold">{fullName}</h3>
                     <p className="text-sm text-slate-500">
-                      {child.class?.name ?? "No class assigned"}
+                      {child.class?.name ?? "لا يوجد قسم مسند"}
                     </p>
                   </div>
 
@@ -548,13 +604,13 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
                         : "cursor-not-allowed bg-slate-300"
                     }`}
                   >
-                    Export Bulletin PDF
+                    تصدير بطاقة الأعداد PDF
                   </button>
                 </div>
 
                 {!targetStudentId ? (
                   <p className="mt-3 text-xs text-amber-600">
-                    Student ID not resolved yet for PDF export.
+                    لم يتم تحديد معرّف التلميذ بعد لتصدير PDF.
                   </p>
                 ) : null}
               </div>
@@ -587,19 +643,19 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   const attendances = studentData.attendances ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">My Portal</h2>
+          <h2 className="text-2xl font-bold">فضائي</h2>
           <p className="text-sm text-slate-500">
-            Your weighted academic summary, timetable, grades, and absences.
+            ملخصك الأكاديمي الموزون وجدول أوقاتك وأعدادك وغياباتك.
           </p>
         </div>
 
         <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-end">
           <div className="w-full md:w-56">
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              Period
+              الثلاثي
             </label>
             <select
               value={period}
@@ -619,7 +675,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
               onClick={() => handleExportBulletin(studentData.id!)}
               className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
-              Export Bulletin PDF
+              تصدير بطاقة الأعداد PDF
             </button>
           ) : null}
         </div>
@@ -640,7 +696,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <GradesSection grades={grades} period={period} />
-        <AttendanceSection attendances={attendances} title="Absences" />
+        <AttendanceSection attendances={attendances} title="الغيابات" />
       </div>
 
       <AssignmentsSection apiBaseUrl={apiBaseUrl} token={token} />
