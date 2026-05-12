@@ -7,7 +7,7 @@ import EmptyState from "../../components/common/EmptyState";
 type AuditActor = {
   id: string;
   firstName: string;
-  lastName: string;
+  lastName: string[object Object];
   email: string;
   role: string;
 };
@@ -91,12 +91,76 @@ const ROLE_OPTIONS = ["ADMIN", "TEACHER", "STUDENT", "PARENT"];
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
+const actionLabels: Record<string, string> = {
+  CREATE_USER: "إنشاء مستخدم",
+  UPDATE_USER: "تعديل مستخدم",
+  DELETE_USER: "حذف مستخدم",
+
+  CREATE_CLASS: "إنشاء قسم",
+  DELETE_CLASS: "حذف قسم",
+
+  CREATE_SUBJECT: "إنشاء مادة",
+  DELETE_SUBJECT: "حذف مادة",
+
+  CREATE_GRADE: "تسجيل عدد",
+  UPDATE_GRADE: "تعديل عدد",
+
+  CREATE_ATTENDANCE: "تسجيل حضور وغياب",
+  UPDATE_ATTENDANCE: "تعديل حضور وغياب",
+
+  CREATE_SCHEDULE: "إنشاء حصة",
+  UPDATE_SCHEDULE: "تعديل حصة",
+  DELETE_SCHEDULE: "حذف حصة",
+
+  CREATE_ASSIGNMENT: "إنشاء واجب",
+  UPDATE_ASSIGNMENT: "تعديل واجب",
+  DELETE_ASSIGNMENT: "حذف واجب",
+
+  CREATE_ANNOUNCEMENT: "إنشاء إعلان",
+  UPDATE_ANNOUNCEMENT: "تعديل إعلان",
+  DELETE_ANNOUNCEMENT: "حذف إعلان",
+
+  UPDATE_SCHOOL_SETTINGS: "تعديل إعدادات المدرسة",
+
+  NOTIFY_BULLETIN: "إرسال إشعار بطاقة الأعداد",
+};
+
+const entityLabels: Record<string, string> = {
+  User: "مستخدم",
+  Class: "قسم",
+  Subject: "مادة",
+  Grade: "عدد",
+  Attendance: "حضور وغياب",
+  Schedule: "جدول أوقات",
+  Assignment: "واجب",
+  Announcement: "إعلان",
+  SchoolSettings: "إعدادات المدرسة",
+  Student: "تلميذ",
+  Bulletin: "بطاقة أعداد",
+};
+
+const roleLabels: Record<string, string> = {
+  ADMIN: "مدير النظام",
+  TEACHER: "معلّم",
+  STUDENT: "تلميذ",
+  PARENT: "ولي",
+};
+
 function formatAction(action: string) {
-  return action.replaceAll("_", " ");
+  return actionLabels[action] ?? action.replaceAll("_", " ");
+}
+
+function formatEntity(entity: string) {
+  return entityLabels[entity] ?? entity;
+}
+
+function formatRole(role?: string | null) {
+  if (!role) return "-";
+  return roleLabels[role] ?? role;
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("ar-TN");
 }
 
 function formatDetails(details: unknown, pretty = false) {
@@ -109,11 +173,25 @@ function formatDetails(details: unknown, pretty = false) {
   }
 }
 
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("audit")) {
+    return "تعذر تحميل سجلّ النشاط.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
+
 function getActorName(log: AuditLog) {
   return (
     log.actorName ||
     `${log.actor?.firstName ?? ""} ${log.actor?.lastName ?? ""}`.trim() ||
-    "System"
+    "النظام"
   );
 }
 
@@ -164,7 +242,9 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
         setPage(response.page);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load audit logs.");
+      const message =
+        err instanceof Error ? err.message : "تعذر تحميل سجلّ النشاط.";
+      setError(translateError(message));
       setLogs([]);
       setTotal(0);
       setTotalPages(1);
@@ -213,16 +293,16 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
     const rows = logs.map((log) => ({
       date: formatDate(log.createdAt),
       actor: getActorName(log),
-      role: log.actorRole ?? "",
+      role: formatRole(log.actorRole),
       action: formatAction(log.action),
-      entity: log.entity,
+      entity: formatEntity(log.entity),
       entityId: log.entityId ?? "",
       ipAddress: log.ipAddress ?? "",
       details: formatDetails(log.details),
     }));
 
     const html = `
-      <html>
+      <html dir="rtl">
         <head>
           <meta charset="UTF-8" />
           <style>
@@ -230,6 +310,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
               border-collapse: collapse;
               font-family: Calibri, Arial, sans-serif;
               font-size: 11pt;
+              direction: rtl;
             }
 
             th {
@@ -241,6 +322,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
               border: 1px solid #94a3b8;
               padding: 6px 8px;
               vertical-align: top;
+              text-align: right;
             }
 
             .date-col {
@@ -257,7 +339,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
             }
 
             .role-col {
-              width: 70px;
+              width: 120px;
               white-space: nowrap;
             }
 
@@ -273,16 +355,22 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
 
             .entity-id-col {
               width: 280px;
+              direction: ltr;
+              text-align: left;
               white-space: nowrap;
             }
 
             .ip-col {
               width: 130px;
+              direction: ltr;
+              text-align: left;
               white-space: nowrap;
             }
 
             .details-col {
               width: 650px;
+              direction: ltr;
+              text-align: left;
               white-space: normal;
             }
           </style>
@@ -292,14 +380,14 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
           <table>
             <thead>
               <tr>
-                <th class="date-col">Date</th>
-                <th class="actor-col">Actor</th>
-                <th class="role-col">Role</th>
-                <th class="action-col">Action</th>
-                <th class="entity-col">Entity</th>
-                <th class="entity-id-col">Entity ID</th>
-                <th class="ip-col">IP Address</th>
-                <th class="details-col">Details</th>
+                <th class="date-col">التاريخ</th>
+                <th class="actor-col">المستخدم</th>
+                <th class="role-col">الدور</th>
+                <th class="action-col">الإجراء</th>
+                <th class="entity-col">العنصر</th>
+                <th class="entity-id-col">معرّف العنصر</th>
+                <th class="ip-col">عنوان IP</th>
+                <th class="details-col">التفاصيل</th>
               </tr>
             </thead>
 
@@ -355,32 +443,32 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
   const canGoNext = page < totalPages;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <section>
-        <h1 className="text-2xl font-bold text-slate-900">Audit Logs</h1>
+        <h1 className="text-2xl font-bold text-slate-900">سجلّ النشاط</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Track important actions performed inside the ERP.
+          متابعة الإجراءات المهمّة التي تتم داخل منظومة إدارة المدرسة.
         </p>
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Total Logs</p>
+          <p className="text-sm text-slate-500">إجمالي السجلات</p>
           <p className="mt-2 text-2xl font-bold">{totalLogs}</p>
           <p className="mt-1 text-xs text-slate-400">
-            Showing {logs.length} on this page
+            يتم عرض {logs.length} سجل في هذه الصفحة
           </p>
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Latest Action</p>
+          <p className="text-sm text-slate-500">آخر إجراء</p>
           <p className="mt-2 truncate text-lg font-semibold">
             {latestLog ? formatAction(latestLog.action) : "-"}
           </p>
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Latest Actor</p>
+          <p className="text-sm text-slate-500">آخر مستخدم</p>
           <p className="mt-2 truncate text-lg font-semibold">
             {latestLog ? getActorName(latestLog) : "-"}
           </p>
@@ -391,14 +479,14 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
         <div className="grid gap-4 md:grid-cols-6">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              Action
+              الإجراء
             </label>
             <select
               value={action}
               onChange={(e) => handleActionChange(e.target.value)}
               className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
             >
-              <option value="">All actions</option>
+              <option value="">كل الإجراءات</option>
               {ACTION_OPTIONS.map((item) => (
                 <option key={item} value={item}>
                   {formatAction(item)}
@@ -409,17 +497,17 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
 
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              Entity
+              العنصر
             </label>
             <select
               value={entity}
               onChange={(e) => handleEntityChange(e.target.value)}
               className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
             >
-              <option value="">All entities</option>
+              <option value="">كل العناصر</option>
               {ENTITY_OPTIONS.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {formatEntity(item)}
                 </option>
               ))}
             </select>
@@ -427,17 +515,17 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
 
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              Role
+              الدور
             </label>
             <select
               value={actorRole}
               onChange={(e) => handleRoleChange(e.target.value)}
               className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
             >
-              <option value="">All roles</option>
+              <option value="">كل الأدوار</option>
               {ROLE_OPTIONS.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {formatRole(item)}
                 </option>
               ))}
             </select>
@@ -445,7 +533,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
 
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              Page size
+              حجم الصفحة
             </label>
             <select
               value={limit}
@@ -454,7 +542,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
             >
               {PAGE_SIZE_OPTIONS.map((item) => (
                 <option key={item} value={item}>
-                  {item} / page
+                  {item} / صفحة
                 </option>
               ))}
             </select>
@@ -466,7 +554,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
               onClick={fetchLogs}
               className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
-              Refresh
+              تحديث
             </button>
           </div>
 
@@ -477,30 +565,30 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
               disabled={logs.length === 0}
               className="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Export Excel
+              تصدير Excel
             </button>
           </div>
         </div>
       </section>
 
       {loading ? (
-        <LoadingState message="Loading audit logs..." />
+        <LoadingState message="جارٍ تحميل سجلّ النشاط..." />
       ) : error ? (
         <ErrorState message={error} />
       ) : logs.length === 0 ? (
-        <EmptyState message="No audit logs found." />
+        <EmptyState message="لا توجد سجلات نشاط." />
       ) : (
         <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="border-b bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <thead className="border-b bg-slate-50 text-right text-xs uppercase text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Actor</th>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">Action</th>
-                  <th className="px-4 py-3">Entity</th>
-                  <th className="px-4 py-3">Details</th>
+                  <th className="px-4 py-3">التاريخ</th>
+                  <th className="px-4 py-3">المستخدم</th>
+                  <th className="px-4 py-3">الدور</th>
+                  <th className="px-4 py-3">الإجراء</th>
+                  <th className="px-4 py-3">العنصر</th>
+                  <th className="px-4 py-3">التفاصيل</th>
                 </tr>
               </thead>
 
@@ -518,14 +606,14 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
                         <div className="font-medium text-slate-900">
                           {actorName}
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-left text-xs text-slate-500" dir="ltr">
                           {log.actor?.email ?? ""}
                         </div>
                       </td>
 
                       <td className="px-4 py-3">
                         <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium">
-                          {log.actorRole ?? "-"}
+                          {formatRole(log.actorRole)}
                         </span>
                       </td>
 
@@ -536,8 +624,8 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
                       </td>
 
                       <td className="px-4 py-3">
-                        <div className="font-medium">{log.entity}</div>
-                        <div className="max-w-[180px] truncate text-xs text-slate-500">
+                        <div className="font-medium">{formatEntity(log.entity)}</div>
+                        <div className="max-w-[180px] truncate text-left text-xs text-slate-500" dir="ltr">
                           {log.entityId ?? ""}
                         </div>
                       </td>
@@ -549,6 +637,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
                             onClick={() => setSelectedLog(log)}
                             className="max-w-[420px] truncate rounded-lg bg-slate-50 px-3 py-1 text-left text-xs text-slate-700 hover:bg-slate-100"
                             title={formatDetails(log.details)}
+                            dir="ltr"
                           >
                             {formatDetails(log.details)}
                           </button>
@@ -565,16 +654,16 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
 
           <div className="flex flex-col gap-3 border-t px-4 py-4 text-sm md:flex-row md:items-center md:justify-between">
             <p className="text-slate-500">
-              Showing{" "}
+              عرض{" "}
               <span className="font-medium text-slate-700">
                 {firstVisibleLog}
               </span>{" "}
-              to{" "}
+              إلى{" "}
               <span className="font-medium text-slate-700">
                 {lastVisibleLog}
               </span>{" "}
-              of{" "}
-              <span className="font-medium text-slate-700">{total}</span> logs
+              من{" "}
+              <span className="font-medium text-slate-700">{total}</span> سجل
             </p>
 
             <div className="flex items-center gap-2">
@@ -584,11 +673,11 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
                 disabled={!canGoPrevious}
                 className="rounded-xl border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Previous
+                السابق
               </button>
 
               <span className="rounded-xl bg-slate-100 px-4 py-2 font-medium text-slate-700">
-                Page {page} / {totalPages}
+                الصفحة {page} / {totalPages}
               </span>
 
               <button
@@ -599,7 +688,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
                 disabled={!canGoNext}
                 className="rounded-xl border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Next
+                التالي
               </button>
             </div>
           </div>
@@ -612,16 +701,17 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
           onClick={() => setSelectedLog(null)}
         >
           <div
-            className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl"
+            className="w-full max-w-3xl rounded-2xl bg-white p-6 text-right shadow-xl"
+            dir="rtl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">
-                  Audit Log Details
+                  تفاصيل سجلّ النشاط
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  {formatAction(selectedLog.action)} • {selectedLog.entity}
+                  {formatAction(selectedLog.action)} • {formatEntity(selectedLog.entity)}
                 </p>
               </div>
 
@@ -630,49 +720,51 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
                 onClick={() => setSelectedLog(null)}
                 className="rounded-lg px-3 py-1 text-sm font-medium text-slate-500 hover:bg-slate-100"
               >
-                Close
+                إغلاق
               </button>
             </div>
 
             <div className="grid gap-3 text-sm md:grid-cols-2">
               <div>
-                <p className="text-slate-500">Date</p>
+                <p className="text-slate-500">التاريخ</p>
                 <p className="font-medium">
                   {formatDate(selectedLog.createdAt)}
                 </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Actor</p>
+                <p className="text-slate-500">المستخدم</p>
                 <p className="font-medium">{getActorName(selectedLog)}</p>
               </div>
 
               <div>
-                <p className="text-slate-500">Role</p>
-                <p className="font-medium">{selectedLog.actorRole ?? "-"}</p>
+                <p className="text-slate-500">الدور</p>
+                <p className="font-medium">{formatRole(selectedLog.actorRole)}</p>
               </div>
 
               <div>
-                <p className="text-slate-500">IP Address</p>
-                <p className="font-medium">{selectedLog.ipAddress ?? "-"}</p>
+                <p className="text-slate-500">عنوان IP</p>
+                <p className="text-left font-medium" dir="ltr">
+                  {selectedLog.ipAddress ?? "-"}
+                </p>
               </div>
 
               <div>
-                <p className="text-slate-500">Entity</p>
-                <p className="font-medium">{selectedLog.entity}</p>
+                <p className="text-slate-500">العنصر</p>
+                <p className="font-medium">{formatEntity(selectedLog.entity)}</p>
               </div>
 
               <div>
-                <p className="text-slate-500">Entity ID</p>
-                <p className="break-all font-medium">
+                <p className="text-slate-500">معرّف العنصر</p>
+                <p className="break-all text-left font-medium" dir="ltr">
                   {selectedLog.entityId ?? "-"}
                 </p>
               </div>
             </div>
 
             <div className="mt-5">
-              <p className="mb-2 text-sm text-slate-500">Details</p>
-              <pre className="max-h-[360px] overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">
+              <p className="mb-2 text-sm text-slate-500">التفاصيل</p>
+              <pre className="max-h-[360px] overflow-auto rounded-xl bg-slate-950 p-4 text-left text-xs text-slate-100" dir="ltr">
                 {formatDetails(selectedLog.details, true)}
               </pre>
             </div>
