@@ -69,7 +69,7 @@ useEffect(() => {
 
   const fullName = useMemo(() => {
     const value = `${firstName} ${lastName}`.trim();
-    return value || "User";
+    return value || "مستخدم";
   }, [firstName, lastName]);
 
   const isStudentOrParent = role === "STUDENT" || role === "PARENT";
