@@ -35,35 +35,73 @@ async function apiRequest<T>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error((data as { error?: string }).error || "Request failed");
+    throw new Error((data as { error?: string }).error || "تعذر تنفيذ الطلب.");
   }
 
   return data as T;
 }
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("ar-TN");
+}
+
+function translateType(type: string) {
+  const normalized = type.toUpperCase();
+
+  if (normalized === "ASSIGNMENT") return "واجب";
+  if (normalized === "ANNOUNCEMENT") return "إعلان";
+  if (normalized === "GRADE") return "عدد";
+  if (normalized === "BULLETIN") return "بطاقة أعداد";
+  if (normalized === "MESSAGE") return "رسالة";
+
+  return "إشعار";
+}
+
+function translateNotificationText(value: string) {
+  const normalized = value.toLowerCase();
+
+  if (normalized.includes("new grade published")) {
+    return "تم نشر عدد جديد";
+  }
+
+  if (normalized.includes("new assignment")) {
+    return "واجب جديد";
+  }
+
+  if (normalized.includes("new announcement")) {
+    return "إعلان جديد";
+  }
+
+  if (normalized.includes("new message")) {
+    return "رسالة جديدة";
+  }
+
+  if (normalized.includes("bulletin")) {
+    return "بطاقة أعداد";
+  }
+
+  return value;
 }
 
 function TypeBadge({ type }: { type: string }) {
   const normalized = type.toUpperCase();
 
   const style =
-  normalized === "ASSIGNMENT"
-    ? "bg-blue-100 text-blue-700"
-    : normalized === "ANNOUNCEMENT"
-    ? "bg-emerald-100 text-emerald-700"
-    : normalized === "GRADE"
-    ? "bg-amber-100 text-amber-700"
-    : normalized === "BULLETIN"
-    ? "bg-indigo-100 text-indigo-700"
-    : normalized === "MESSAGE"
-    ? "bg-violet-100 text-violet-700"
-    : "bg-slate-100 text-slate-700";
+    normalized === "ASSIGNMENT"
+      ? "bg-blue-100 text-blue-700"
+      : normalized === "ANNOUNCEMENT"
+      ? "bg-emerald-100 text-emerald-700"
+      : normalized === "GRADE"
+      ? "bg-amber-100 text-amber-700"
+      : normalized === "BULLETIN"
+      ? "bg-indigo-100 text-indigo-700"
+      : normalized === "MESSAGE"
+      ? "bg-violet-100 text-violet-700"
+      : "bg-slate-100 text-slate-700";
 
   return (
     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${style}`}>
-      {type}
+      {translateType(type)}
     </span>
   );
 }
@@ -90,7 +128,7 @@ export default function NotificationsBell({
     } catch (err) {
       if (showError) {
         setError(
-          err instanceof Error ? err.message : "Failed to load notifications"
+          err instanceof Error ? err.message : "تعذر تحميل الإشعارات."
         );
       }
     }
@@ -141,7 +179,7 @@ export default function NotificationsBell({
       await fetchNotifications(true);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to update notification"
+        err instanceof Error ? err.message : "تعذر تحديث الإشعار."
       );
     } finally {
       setSavingId(null);
@@ -149,44 +187,44 @@ export default function NotificationsBell({
   };
 
   const handleOpenMessages = async (
-  notificationId: string,
-  isRead: boolean,
-  conversationId?: string | null
-) => {
-  if (!isRead) {
-    await handleMarkRead(notificationId);
-  }
+    notificationId: string,
+    isRead: boolean,
+    conversationId?: string | null
+  ) => {
+    if (!isRead) {
+      await handleMarkRead(notificationId);
+    }
 
-  setOpen(false);
-  onOpenMessages?.(conversationId);
-};
+    setOpen(false);
+    onOpenMessages?.(conversationId);
+  };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" dir="rtl">
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm hover:bg-slate-50"
+        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-right shadow-sm hover:bg-slate-50"
       >
         <div className="flex items-center gap-3">
           <div className="relative">
             <Bell className="h-5 w-5 text-slate-700" />
             {unreadCount > 0 ? (
-              <span className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+              <span className="absolute -left-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             ) : null}
           </div>
 
           <div>
-            <p className="text-sm font-semibold text-slate-900">Notifications</p>
+            <p className="text-sm font-semibold text-slate-900">الإشعارات</p>
             <p className="text-xs text-slate-500">
-              {unreadCount} unread • {notifications.length} total
+              {unreadCount} غير مقروءة • {notifications.length} المجموع
             </p>
           </div>
         </div>
 
         <span className="text-xs font-medium text-slate-500">
-          {open ? "Hide" : "Show"}
+          {open ? "إخفاء" : "عرض"}
         </span>
       </button>
 
@@ -199,9 +237,9 @@ export default function NotificationsBell({
           ) : null}
 
           {loading ? (
-            <p className="text-sm text-slate-500">Loading notifications...</p>
+            <p className="text-sm text-slate-500">جارٍ تحميل الإشعارات...</p>
           ) : latestNotifications.length === 0 ? (
-            <p className="text-sm text-slate-500">No notifications yet.</p>
+            <p className="text-sm text-slate-500">لا توجد إشعارات حاليًا.</p>
           ) : (
             <div className="space-y-3">
               {latestNotifications.map((item) => (
@@ -215,53 +253,55 @@ export default function NotificationsBell({
                 >
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold text-slate-900">
-                      {item.title}
+                      {translateNotificationText(item.title)}
                     </p>
                     <TypeBadge type={item.type} />
                     {!item.isRead ? (
                       <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">
-                        Unread
+                        غير مقروء
                       </span>
                     ) : (
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
-                        Read
+                        مقروء
                       </span>
                     )}
                   </div>
 
                   <p className="text-xs leading-5 text-slate-600">
-                    {item.message}
+                    {translateNotificationText(item.message)}
                   </p>
 
                   <div className="mt-2 flex items-center justify-between gap-3">
-  <p className="text-[11px] text-slate-500">
-    {formatDateTime(item.createdAt)}
-  </p>
+                    <p className="text-[11px] text-slate-500">
+                      {formatDateTime(item.createdAt)}
+                    </p>
 
-  <div className="flex items-center gap-2">
-    {item.type.toUpperCase() === "MESSAGE" ? (
-      <button
-        onClick={() => handleOpenMessages(item.id, item.isRead, item.relatedId)}
-        disabled={savingId === item.id}
-        className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-[11px] font-medium text-white disabled:opacity-60"
-      >
-        <MessageCircle className="h-3.5 w-3.5" />
-        Open messages
-      </button>
-    ) : null}
+                    <div className="flex items-center gap-2">
+                      {item.type.toUpperCase() === "MESSAGE" ? (
+                        <button
+                          onClick={() =>
+                            handleOpenMessages(item.id, item.isRead, item.relatedId)
+                          }
+                          disabled={savingId === item.id}
+                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-[11px] font-medium text-white disabled:opacity-60"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          فتح الرسائل
+                        </button>
+                      ) : null}
 
-    {!item.isRead ? (
-      <button
-        onClick={() => handleMarkRead(item.id)}
-        disabled={savingId === item.id}
-        className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-medium text-white disabled:opacity-60"
-      >
-        <CheckCheck className="h-3.5 w-3.5" />
-        {savingId === item.id ? "Saving..." : "Mark read"}
-      </button>
-    ) : null}
-  </div>
-</div>
+                      {!item.isRead ? (
+                        <button
+                          onClick={() => handleMarkRead(item.id)}
+                          disabled={savingId === item.id}
+                          className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-medium text-white disabled:opacity-60"
+                        >
+                          <CheckCheck className="h-3.5 w-3.5" />
+                          {savingId === item.id ? "جارٍ الحفظ..." : "تحديد كمقروء"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
