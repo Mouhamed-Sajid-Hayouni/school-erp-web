@@ -22,6 +22,36 @@ const toDateInputValue = (value: string | null) => {
   return value.slice(0, 10);
 };
 
+function formatPeriodLabel(period: GradePeriod) {
+  if (period === "TRIMESTER_1") return "الثلاثي الأول";
+  if (period === "TRIMESTER_2") return "الثلاثي الثاني";
+  if (period === "TRIMESTER_3") return "الثلاثي الثالث";
+
+  return period;
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("ar-TN");
+}
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("load") || normalized.includes("settings")) {
+    return "تعذر تحميل إعدادات المدرسة.";
+  }
+
+  if (normalized.includes("update") || normalized.includes("save")) {
+    return "تعذر حفظ إعدادات المدرسة.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
+
 export default function SchoolSettingsPage() {
   const token = localStorage.getItem("token") || "";
 
@@ -67,9 +97,9 @@ export default function SchoolSettingsPage() {
       setDefaultReportFrom(toDateInputValue(data.defaultReportFrom));
       setDefaultReportTo(toDateInputValue(data.defaultReportTo));
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load school settings."
-      );
+      const message =
+        err instanceof Error ? err.message : "تعذر تحميل إعدادات المدرسة.";
+      setError(translateError(message));
     } finally {
       setLoading(false);
     }
@@ -111,12 +141,12 @@ export default function SchoolSettingsPage() {
       setDefaultReportFrom(toDateInputValue(data.defaultReportFrom));
       setDefaultReportTo(toDateInputValue(data.defaultReportTo));
 
-      setSuccess("School settings updated successfully.");
+      setSuccess("تم حفظ إعدادات المدرسة بنجاح.");
       window.dispatchEvent(new Event("school-settings-updated"));
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to update school settings."
-      );
+      const message =
+        err instanceof Error ? err.message : "تعذر حفظ إعدادات المدرسة.";
+      setError(translateError(message));
     } finally {
       setSaving(false);
     }
@@ -128,12 +158,11 @@ export default function SchoolSettingsPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">School Settings</h1>
+        <h1 className="text-3xl font-bold text-slate-900">إعدادات المدرسة</h1>
         <p className="mt-1 text-slate-500">
-          Configure school identity, academic year, default trimester, and report
-          dates.
+          ضبط هوية المدرسة والسنة الدراسية والثلاثي الافتراضي وتواريخ التقارير.
         </p>
       </div>
 
@@ -152,22 +181,21 @@ export default function SchoolSettingsPage() {
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="mb-5">
           <h2 className="text-xl font-semibold text-slate-900">
-            General Settings
+            الإعدادات العامة
           </h2>
           <p className="text-sm text-slate-500">
-            These values can be reused across reports, bulletins, and school
-            documents.
+            يمكن استعمال هذه القيم في التقارير وبطاقات الأعداد والوثائق المدرسية.
           </p>
         </div>
 
         {loading ? (
-          <p className="text-sm text-slate-500">Loading settings...</p>
+          <p className="text-sm text-slate-500">جارٍ تحميل الإعدادات...</p>
         ) : (
           <div className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  School name
+                  اسم المدرسة
                 </label>
                 <input
                   value={schoolName}
@@ -179,19 +207,19 @@ export default function SchoolSettingsPage() {
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  School subtitle
+                  الوصف المختصر للمدرسة
                 </label>
                 <input
                   value={schoolSubtitle}
                   onChange={(event) => setSchoolSubtitle(event.target.value)}
-                  placeholder="Tunisian Public School"
+                  placeholder="مدرسة عمومية تونسية"
                   className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-500"
                 />
               </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Academic year
+                  السنة الدراسية
                 </label>
                 <input
                   value={academicYear}
@@ -203,7 +231,7 @@ export default function SchoolSettingsPage() {
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Default trimester
+                  الثلاثي الافتراضي
                 </label>
                 <select
                   value={defaultTrimester}
@@ -212,33 +240,35 @@ export default function SchoolSettingsPage() {
                   }
                   className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-500"
                 >
-                  <option value="TRIMESTER_1">Trimester 1</option>
-                  <option value="TRIMESTER_2">Trimester 2</option>
-                  <option value="TRIMESTER_3">Trimester 3</option>
+                  <option value="TRIMESTER_1">الثلاثي الأول</option>
+                  <option value="TRIMESTER_2">الثلاثي الثاني</option>
+                  <option value="TRIMESTER_3">الثلاثي الثالث</option>
                 </select>
               </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Default report from
+                  تاريخ بداية التقارير الافتراضي
                 </label>
                 <input
                   type="date"
+                  dir="ltr"
                   value={defaultReportFrom}
                   onChange={(event) => setDefaultReportFrom(event.target.value)}
-                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-500"
+                  className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-500"
                 />
               </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Default report to
+                  تاريخ نهاية التقارير الافتراضي
                 </label>
                 <input
                   type="date"
+                  dir="ltr"
                   value={defaultReportTo}
                   onChange={(event) => setDefaultReportTo(event.target.value)}
-                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-500"
+                  className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-500"
                 />
               </div>
             </div>
@@ -246,10 +276,8 @@ export default function SchoolSettingsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-5">
               <div className="text-xs text-slate-500">
                 {settings?.updatedAt
-                  ? `Last updated: ${new Date(
-                      settings.updatedAt
-                    ).toLocaleString()}`
-                  : "Settings not saved yet."}
+                  ? `آخر تحديث: ${formatDateTime(settings.updatedAt)}`
+                  : "لم يتم حفظ الإعدادات بعد."}
               </div>
 
               <button
@@ -257,7 +285,7 @@ export default function SchoolSettingsPage() {
                 disabled={saving}
                 className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {saving ? "Saving..." : "Save settings"}
+                {saving ? "جارٍ الحفظ..." : "حفظ الإعدادات"}
               </button>
             </div>
           </div>
@@ -265,15 +293,24 @@ export default function SchoolSettingsPage() {
       </div>
 
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Current values</h2>
+        <h2 className="text-lg font-semibold text-slate-900">القيم الحالية</h2>
 
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <SettingPreview label="School" value={schoolName || "-"} />
-          <SettingPreview label="Subtitle" value={schoolSubtitle || "-"} />
-          <SettingPreview label="Academic year" value={academicYear || "-"} />
-          <SettingPreview label="Trimester" value={defaultTrimester} />
-          <SettingPreview label="Report from" value={defaultReportFrom || "-"} />
-          <SettingPreview label="Report to" value={defaultReportTo || "-"} />
+          <SettingPreview label="المدرسة" value={schoolName || "-"} />
+          <SettingPreview label="الوصف المختصر" value={schoolSubtitle || "-"} />
+          <SettingPreview label="السنة الدراسية" value={academicYear || "-"} />
+          <SettingPreview
+            label="الثلاثي"
+            value={formatPeriodLabel(defaultTrimester)}
+          />
+          <SettingPreview
+            label="تقرير من"
+            value={defaultReportFrom || "-"}
+          />
+          <SettingPreview
+            label="تقرير إلى"
+            value={defaultReportTo || "-"}
+          />
         </div>
       </div>
     </div>
@@ -282,7 +319,7 @@ export default function SchoolSettingsPage() {
 
 function SettingPreview({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border bg-slate-50 p-4">
+    <div className="rounded-xl border bg-slate-50 p-4 text-right" dir="rtl">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </p>
