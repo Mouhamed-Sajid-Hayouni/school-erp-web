@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiDelete, apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -15,6 +15,28 @@ type SubjectsPageProps = {
   apiBaseUrl: string;
   token: string;
 };
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("subject name")) {
+    return "اسم المادة مطلوب.";
+  }
+
+  if (normalized.includes("coefficient")) {
+    return "يجب أن يكون المعامل عددًا أكبر من 0.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  if (normalized.includes("delete")) {
+    return "تعذر حذف المادة.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
 
 export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
   const { showToast } = useToast();
@@ -40,9 +62,10 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
       const json = await apiGet<SubjectRow[]>(`${apiBaseUrl}/api/subjects`, token);
       setSubjects(Array.isArray(json) ? json : []);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setLoading(false);
     }
@@ -68,21 +91,23 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
 
     const trimmedName = form.name.trim();
     const parsedCoefficient = Number(form.coefficient);
 
     if (!trimmedName) {
-      setError("Subject name is required.");
-      showToast("Subject name is required.", "error");
+      const message = "اسم المادة مطلوب.";
+      setError(message);
+      showToast(message, "error");
       return;
     }
 
     if (Number.isNaN(parsedCoefficient) || parsedCoefficient <= 0) {
-      setError("Coefficient must be a number greater than 0.");
-      showToast("Coefficient must be a number greater than 0.", "error");
+      const message = "يجب أن يكون المعامل عددًا أكبر من 0.";
+      setError(message);
+      showToast(message, "error");
       return;
     }
 
@@ -103,18 +128,19 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
         name: "",
         coefficient: "1",
       });
-      showToast("Subject created successfully.", "success");
+      showToast("تم إنشاء المادة بنجاح.", "success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setCreating(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    const confirmed = window.confirm("Are you sure you want to delete this subject?");
+    const confirmed = window.confirm("هل أنت متأكد من حذف هذه المادة؟");
     if (!confirmed) return;
 
     try {
@@ -123,50 +149,52 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
 
       await apiDelete(`${apiBaseUrl}/api/subjects/${id}`, token);
       setSubjects((prev) => prev.filter((item) => item.id !== id));
-      showToast("Subject deleted successfully.", "success");
+      showToast("تم حذف المادة بنجاح.", "success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setDeletingId(null);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <header>
-        <h2 className="text-2xl font-bold">Subjects</h2>
+        <h2 className="text-2xl font-bold">المواد</h2>
         <p className="text-sm text-slate-500">
-          Manage academic subjects and their coefficients.
+          إدارة المواد الدراسية ومعاملاتها.
         </p>
       </header>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold">Create Subject</h3>
+        <h3 className="mb-4 text-lg font-semibold">إنشاء مادة</h3>
 
         <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Subject Name</label>
+            <label className="text-sm font-medium text-slate-700">اسم المادة</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => handleChange("name", e.target.value)}
-              placeholder="e.g. Mathématiques"
+              placeholder="مثال: الرياضيات"
               className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Coefficient</label>
+            <label className="text-sm font-medium text-slate-700">المعامل</label>
             <input
               type="number"
               min="0.1"
               step="0.1"
+              dir="ltr"
               value={form.coefficient}
               onChange={(e) => handleChange("coefficient", e.target.value)}
-              placeholder="e.g. 2"
-              className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+              placeholder="2"
+              className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
             />
           </div>
 
@@ -176,7 +204,7 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
               disabled={creating}
               className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              {creating ? "Creating..." : "Create Subject"}
+              {creating ? "جارٍ الإنشاء..." : "إنشاء المادة"}
             </button>
           </div>
         </form>
@@ -184,12 +212,12 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h3 className="text-lg font-semibold">Subject List</h3>
+          <h3 className="text-lg font-semibold">قائمة المواد</h3>
 
           <div className="flex flex-col gap-3 md:flex-row">
             <input
               type="text"
-              placeholder="Search by subject or coefficient..."
+              placeholder="البحث باسم المادة أو المعامل..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
@@ -199,25 +227,25 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
               onClick={fetchSubjects}
               className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
-              Refresh
+              تحديث
             </button>
           </div>
         </div>
 
         {loading ? (
-          <LoadingState message="Loading subjects..." />
+          <LoadingState message="جارٍ تحميل المواد..." />
         ) : error ? (
           <ErrorState message={error} />
         ) : filteredSubjects.length === 0 ? (
-          <EmptyState message="No subjects found for the current search." />
+          <EmptyState message="لا توجد مواد مطابقة للبحث الحالي." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
               <thead>
-                <tr className="border-b text-left text-sm text-slate-500">
-                  <th className="px-3 py-3 font-medium">Subject Name</th>
-                  <th className="px-3 py-3 font-medium">Coefficient</th>
-                  <th className="px-3 py-3 font-medium">Actions</th>
+                <tr className="border-b text-right text-sm text-slate-500">
+                  <th className="px-3 py-3 font-medium">اسم المادة</th>
+                  <th className="px-3 py-3 font-medium">المعامل</th>
+                  <th className="px-3 py-3 font-medium">الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -233,7 +261,7 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
                         disabled={deletingId === item.id}
                         className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
                       >
-                        {deletingId === item.id ? "Deleting..." : "Delete"}
+                        {deletingId === item.id ? "جارٍ الحذف..." : "حذف"}
                       </button>
                     </td>
                   </tr>
