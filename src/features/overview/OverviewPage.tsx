@@ -65,6 +65,73 @@ type OverviewPageProps = {
   onNavigate: (tab: OverviewTabKey) => void;
 };
 
+const roleLabels: Record<UserRow["role"], string> = {
+  ADMIN: "مدير النظام",
+  TEACHER: "معلّم",
+  STUDENT: "تلميذ",
+  PARENT: "ولي",
+};
+
+const entityLabels: Record<string, string> = {
+  User: "مستخدم",
+  Class: "قسم",
+  Subject: "مادة",
+  Schedule: "جدول أوقات",
+  Attendance: "حضور وغياب",
+  Grade: "عدد",
+  Assignment: "واجب",
+  Announcement: "إعلان",
+  Message: "رسالة",
+  SchoolSettings: "إعدادات المدرسة",
+};
+
+function translateAuditAction(action: string) {
+  const normalized = action.toUpperCase();
+
+  if (normalized === "CREATE_USER") return "إنشاء مستخدم";
+  if (normalized === "UPDATE_USER") return "تعديل مستخدم";
+  if (normalized === "DELETE_USER") return "حذف مستخدم";
+  if (normalized === "UPDATE_USER_PASSWORD") return "تغيير كلمة مرور";
+  if (normalized === "UPDATE_USER_PROFILE_IMAGE") return "تحديث صورة المستخدم";
+
+  if (normalized === "CREATE_CLASS") return "إنشاء قسم";
+  if (normalized === "UPDATE_CLASS") return "تعديل قسم";
+  if (normalized === "DELETE_CLASS") return "حذف قسم";
+
+  if (normalized === "CREATE_SUBJECT") return "إنشاء مادة";
+  if (normalized === "UPDATE_SUBJECT") return "تعديل مادة";
+  if (normalized === "DELETE_SUBJECT") return "حذف مادة";
+
+  if (normalized === "CREATE_SCHEDULE") return "إنشاء حصة";
+  if (normalized === "UPDATE_SCHEDULE") return "تعديل حصة";
+  if (normalized === "DELETE_SCHEDULE") return "حذف حصة";
+
+  if (normalized === "CREATE_ATTENDANCE") return "تسجيل حضور وغياب";
+  if (normalized === "UPDATE_ATTENDANCE") return "تعديل حضور وغياب";
+
+  if (normalized === "CREATE_GRADE") return "تسجيل عدد";
+  if (normalized === "UPDATE_GRADE") return "تعديل عدد";
+
+  if (normalized === "CREATE_ASSIGNMENT") return "إنشاء واجب";
+  if (normalized === "UPDATE_ASSIGNMENT") return "تعديل واجب";
+  if (normalized === "DELETE_ASSIGNMENT") return "حذف واجب";
+
+  if (normalized === "CREATE_ANNOUNCEMENT") return "نشر إعلان";
+  if (normalized === "UPDATE_SCHOOL_SETTINGS") return "تحديث إعدادات المدرسة";
+
+  return action.replaceAll("_", " ");
+}
+
+function formatDate(value?: string) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("ar-TN");
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("ar-TN");
+}
+
 export default function OverviewPage({
   apiBaseUrl,
   token,
@@ -98,7 +165,8 @@ export default function OverviewPage({
         Array.isArray(auditJson.data) ? auditJson.data[0] ?? null : null
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
+      const message =
+        err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
       setError(message);
       showToast(message, "error");
     } finally {
@@ -121,7 +189,7 @@ export default function OverviewPage({
   }, [users]);
 
   if (loading) {
-    return <LoadingState message="Loading dashboard overview..." />;
+    return <LoadingState message="جارٍ تحميل لوحة القيادة..." />;
   }
 
   if (error) {
@@ -129,29 +197,33 @@ export default function OverviewPage({
   }
 
   if (!stats) {
-    return <EmptyState message="No dashboard data found." />;
+    return <EmptyState message="لا توجد بيانات في لوحة القيادة." />;
   }
 
   const trimesterLabel =
     schoolSettings?.defaultTrimester === "TRIMESTER_1"
-      ? "Trimester 1"
+      ? "الثلاثي الأول"
       : schoolSettings?.defaultTrimester === "TRIMESTER_2"
-        ? "Trimester 2"
+        ? "الثلاثي الثاني"
         : schoolSettings?.defaultTrimester === "TRIMESTER_3"
-          ? "Trimester 3"
+          ? "الثلاثي الثالث"
           : "-";
 
-const latestAuditAction = latestAuditLog
-  ? latestAuditLog.action.replaceAll("_", " ")
-  : "-";
+  const latestAuditAction = latestAuditLog
+    ? translateAuditAction(latestAuditLog.action)
+    : "-";
+
+  const latestAuditEntity = latestAuditLog
+    ? entityLabels[latestAuditLog.entity] || latestAuditLog.entity
+    : "-";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <header className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Overview</h2>
+          <h2 className="text-2xl font-bold">لوحة القيادة</h2>
           <p className="text-sm text-slate-500">
-            Monitor the platform and jump quickly into your main workflows.
+            متابعة حالة المنصة والوصول السريع إلى أهم وظائف النظام.
           </p>
         </div>
 
@@ -159,65 +231,63 @@ const latestAuditAction = latestAuditLog
           onClick={fetchOverview}
           className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
         >
-          Refresh Overview
+          تحديث لوحة القيادة
         </button>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-  <div className="rounded-2xl bg-white p-5 shadow-sm">
-    <p className="text-sm text-slate-500">Academic Year</p>
-    <p className="mt-2 text-2xl font-bold text-slate-900">
-      {schoolSettings?.academicYear || "-"}
-    </p>
-    <p className="mt-1 text-xs text-slate-400">
-      Current configured school year
-    </p>
-  </div>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">السنة الدراسية</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {schoolSettings?.academicYear || "-"}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            السنة الدراسية المعتمدة في إعدادات المدرسة
+          </p>
+        </div>
 
-  <div className="rounded-2xl bg-white p-5 shadow-sm">
-    <p className="text-sm text-slate-500">Current Trimester</p>
-    <p className="mt-2 text-2xl font-bold text-slate-900">
-      {trimesterLabel}
-    </p>
-    <p className="mt-1 text-xs text-slate-400">
-      Default grading/report period
-    </p>
-  </div>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">الثلاثي الحالي</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {trimesterLabel}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            الفترة الافتراضية للأعداد والتقارير
+          </p>
+        </div>
 
-  <div className="rounded-2xl bg-white p-5 shadow-sm">
-    <p className="text-sm text-slate-500">Platform Users</p>
-    <p className="mt-2 text-2xl font-bold text-slate-900">
-      {stats.totalUsers}
-    </p>
-    <p className="mt-1 text-xs text-slate-400">
-      {stats.totalStudents} students · {stats.totalTeachers} teachers ·{" "}
-      {stats.totalAdmins} admins
-    </p>
-  </div>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">مستخدمو المنصة</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {stats.totalUsers}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {stats.totalStudents} تلميذ • {stats.totalTeachers} معلّم •{" "}
+            {stats.totalAdmins} مدير
+          </p>
+        </div>
 
-  <div className="rounded-2xl bg-white p-5 shadow-sm">
-    <p className="text-sm text-slate-500">Latest Audit Action</p>
-    <p className="mt-2 truncate text-lg font-bold text-slate-900">
-      {latestAuditAction}
-    </p>
-    <p className="mt-1 text-xs text-slate-400">
-      {latestAuditLog
-        ? `${latestAuditLog.entity} · ${new Date(
-            latestAuditLog.createdAt
-          ).toLocaleString()}`
-        : "No audit activity yet"}
-    </p>
-  </div>
-</section>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">آخر عملية في سجل النظام</p>
+          <p className="mt-2 truncate text-lg font-bold text-slate-900">
+            {latestAuditAction}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {latestAuditLog
+              ? `${latestAuditEntity} • ${formatDateTime(latestAuditLog.createdAt)}`
+              : "لا توجد عمليات مسجلة بعد"}
+          </p>
+        </div>
+      </section>
 
       <section className="grid gap-6 xl:grid-cols-3">
         <div className="rounded-2xl bg-white p-6 shadow-sm xl:col-span-3">
           <div className="mb-4 flex items-center justify-between gap-4">
-            <h3 className="text-lg font-semibold">Recent Users</h3>
+            <h3 className="text-lg font-semibold">آخر المستخدمين</h3>
           </div>
 
           {recentUsers.length === 0 ? (
-            <p className="text-sm text-slate-500">No recent users found.</p>
+            <p className="text-sm text-slate-500">لا يوجد مستخدمون حديثون.</p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {recentUsers.map((user) => (
@@ -227,14 +297,14 @@ const latestAuditAction = latestAuditLog
                       {user.firstName} {user.lastName}
                     </p>
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
-                      {user.role}
+                      {roleLabels[user.role]}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+                  <p className="mt-1 text-left text-sm text-slate-500" dir="ltr">
+                    {user.email}
+                  </p>
                   <p className="mt-1 text-xs text-slate-400">
-                    {user.createdAt
-                      ? new Date(user.createdAt).toLocaleDateString()
-                      : "-"}
+                    {formatDate(user.createdAt)}
                   </p>
                 </div>
               ))}
