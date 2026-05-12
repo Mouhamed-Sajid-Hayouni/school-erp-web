@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -78,22 +78,22 @@ type BulletinNotifyPayload = {
 
 type GradePeriod = "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
 
-const DEFAULT_EXAM_TYPE = "Devoir de Contrôle N°1";
+const DEFAULT_EXAM_TYPE = "فرض مراقبة عدد 1";
 const DEFAULT_PERIOD: GradePeriod = "TRIMESTER_1";
 
 const PERIOD_OPTIONS: { value: GradePeriod; label: string }[] = [
-  { value: "TRIMESTER_1", label: "Trimester 1" },
-  { value: "TRIMESTER_2", label: "Trimester 2" },
-  { value: "TRIMESTER_3", label: "Trimester 3" },
+  { value: "TRIMESTER_1", label: "الثلاثي الأول" },
+  { value: "TRIMESTER_2", label: "الثلاثي الثاني" },
+  { value: "TRIMESTER_3", label: "الثلاثي الثالث" },
 ];
 
 const EXAM_TYPE_OPTIONS = [
-  "Devoir de Contrôle N°1",
-  "Devoir de Contrôle N°2",
-  "Devoir de Synthèse",
-  "Oral",
-  "TP",
-  "Projet",
+  "فرض مراقبة عدد 1",
+  "فرض مراقبة عدد 2",
+  "فرض تأليفي",
+  "شفوي",
+  "أعمال تطبيقية",
+  "مشروع",
 ];
 
 async function notifyBulletin(
@@ -111,12 +111,44 @@ async function notifyBulletin(
 
 function uniqueById<T extends { id: string }>(items: T[]) {
   const map = new Map<string, T>();
+
   for (const item of items) {
     if (!map.has(item.id)) {
       map.set(item.id, item);
     }
   }
+
   return Array.from(map.values());
+}
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("class") && normalized.includes("subject")) {
+    return "يرجى اختيار القسم والمادة.";
+  }
+
+  if (normalized.includes("exam type")) {
+    return "نوع الامتحان مطلوب.";
+  }
+
+  if (normalized.includes("score")) {
+    return "يجب أن تكون الأعداد بين 0 و20.";
+  }
+
+  if (normalized.includes("bulletin")) {
+    return "تعذر إرسال إشعار بطاقة الأعداد.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
+
+function getPeriodLabel(period: GradePeriod) {
+  return PERIOD_OPTIONS.find((item) => item.value === period)?.label ?? period;
 }
 
 export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
@@ -205,9 +237,10 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       setSubjects(Array.isArray(subjectsJson) ? subjectsJson : []);
       setTeacherSchedules([]);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
-      showToast(message, "error");
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setLoadingLookups(false);
     }
@@ -256,11 +289,12 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       const studentList = Array.isArray(json) ? json : [];
       setStudents(studentList);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
       setStudents([]);
       setGradeMap({});
-      showToast(message, "error");
+      showToast(translated, "error");
     } finally {
       setLoadingGrades(false);
     }
@@ -314,8 +348,9 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
   const handleReloadGrades = async () => {
     if (!selectedClassId || !selectedSubjectId) {
-      setError("Please select a class and subject first.");
-      showToast("Please select a class and subject first.", "error");
+      const message = "يرجى اختيار القسم والمادة أولًا.";
+      setError(message);
+      showToast(message, "error");
       return;
     }
 
@@ -339,8 +374,9 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
   const validateRows = () => {
     if (!examType.trim()) {
-      setError("Exam type is required.");
-      showToast("Exam type is required.", "error");
+      const message = "نوع الامتحان مطلوب.";
+      setError(message);
+      showToast(message, "error");
       return false;
     }
 
@@ -353,19 +389,20 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       const numericScore = Number(scoreText);
 
       if (Number.isNaN(numericScore)) {
-        setError(
-          `Invalid score for ${
-            `${student.user?.firstName ?? ""} ${student.user?.lastName ?? ""}`.trim() ||
-            "student"
-          }.`
-        );
-        showToast("One or more scores are invalid.", "error");
+        const studentName =
+          `${student.user?.firstName ?? ""} ${student.user?.lastName ?? ""}`.trim() ||
+          "تلميذ";
+
+        const message = `العدد غير صالح للتلميذ ${studentName}.`;
+        setError(message);
+        showToast("يوجد عدد أو أكثر غير صالح.", "error");
         return false;
       }
 
       if (numericScore < 0 || numericScore > 20) {
-        setError("Scores must be between 0 and 20.");
-        showToast("Scores must be between 0 and 20.", "error");
+        const message = "يجب أن تكون الأعداد بين 0 و20.";
+        setError(message);
+        showToast(message, "error");
         return false;
       }
     }
@@ -375,8 +412,9 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
   const handleSaveAll = async () => {
     if (!selectedClassId || !selectedSubjectId) {
-      setError("Please select a class and subject.");
-      showToast("Please select a class and subject.", "error");
+      const message = "يرجى اختيار القسم والمادة.";
+      setError(message);
+      showToast(message, "error");
       return;
     }
 
@@ -393,8 +431,9 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       });
 
       if (filledRows.length === 0) {
-        setError("Enter at least one score before saving.");
-        showToast("Enter at least one score before saving.", "error");
+        const message = "يرجى إدخال عدد واحد على الأقل قبل الحفظ.";
+        setError(message);
+        showToast(message, "error");
         return;
       }
 
@@ -417,14 +456,16 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
         })
       );
 
-      setSuccessMessage("Grades saved successfully.");
-      showToast("Grades saved successfully.", "success");
+      const message = "تم حفظ الأعداد بنجاح.";
+      setSuccessMessage(message);
+      showToast(message, "success");
       await fetchGrades(selectedClassId, selectedSubjectId, period);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error.";
-      setError(message);
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
       setSuccessMessage("");
-      showToast(message, "error");
+      showToast(translated, "error");
     } finally {
       setSaving(false);
     }
@@ -438,14 +479,16 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
       await notifyBulletin(apiBaseUrl, token, studentId, period);
 
-      setSuccessMessage("Bulletin notification sent successfully.");
-      showToast("Bulletin notification sent successfully.", "success");
+      const message = "تم إرسال إشعار بطاقة الأعداد بنجاح.";
+      setSuccessMessage(message);
+      showToast(message, "success");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to send bulletin notification.";
-      setError(message);
+        err instanceof Error ? err.message : "تعذر إرسال إشعار بطاقة الأعداد.";
+      const translated = translateError(message);
+      setError(translated);
       setSuccessMessage("");
-      showToast(message, "error");
+      showToast(translated, "error");
     } finally {
       setNotifyingStudentId(null);
     }
@@ -455,7 +498,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
     return students.map((student) => {
       const fullName =
         `${student.user?.firstName ?? ""} ${student.user?.lastName ?? ""}`.trim() ||
-        "Unknown Student";
+        "تلميذ غير معروف";
 
       return {
         studentId: student.id,
@@ -504,29 +547,29 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   }, [rows]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <header>
         <h2 className="text-2xl font-bold">
-          {isTeacher ? "My Grades" : "Grades"}
+          {isTeacher ? "أعدادي" : "الأعداد"}
         </h2>
         <p className="text-sm text-slate-500">
           {isTeacher
-            ? "Select one of your classes and subjects, then enter grades for your students."
-            : "Select a class, subject, period, and exam type, then enter grades for each student."}
+            ? "اختر أحد أقسامك وموادك ثم أدخل أعداد التلاميذ."
+            : "اختر القسم والمادة والثلاثي ونوع الامتحان ثم أدخل أعداد كل تلميذ."}
         </p>
       </header>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Class</label>
+            <label className="text-sm font-medium text-slate-700">القسم</label>
             <select
               value={selectedClassId}
               onChange={(e) => setSelectedClassId(e.target.value)}
               className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
               disabled={loadingLookups}
             >
-              <option value="">Select a class</option>
+              <option value="">اختر قسمًا</option>
               {visibleClasses.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
@@ -537,19 +580,19 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Subject</label>
+            <label className="text-sm font-medium text-slate-700">المادة</label>
             <select
               value={selectedSubjectId}
               onChange={(e) => setSelectedSubjectId(e.target.value)}
               className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
               disabled={loadingLookups}
             >
-              <option value="">Select a subject</option>
+              <option value="">اختر مادة</option>
               {visibleSubjects.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
                   {typeof item.coefficient === "number"
-                    ? ` (coef. ${item.coefficient})`
+                    ? ` (المعامل ${item.coefficient})`
                     : ""}
                 </option>
               ))}
@@ -557,7 +600,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Period</label>
+            <label className="text-sm font-medium text-slate-700">الثلاثي</label>
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value as GradePeriod)}
@@ -572,7 +615,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Exam Type</label>
+            <label className="text-sm font-medium text-slate-700">نوع الامتحان</label>
             <select
               value={examType}
               onChange={(e) => setExamType(e.target.value)}
@@ -591,14 +634,14 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
               onClick={handleReloadGrades}
               className="w-full rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
-              Load Grades
+              تحميل الأعداد
             </button>
           </div>
         </div>
 
         {selectedSubject ? (
           <p className="mt-4 text-sm text-slate-500">
-            Current subject coefficient: {selectedSubject.coefficient ?? 1}
+            معامل المادة الحالي: {selectedSubject.coefficient ?? 1}
           </p>
         ) : null}
 
@@ -618,24 +661,24 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       {!loadingGrades && rows.length > 0 ? (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Students</p>
+            <p className="text-sm text-slate-500">عدد التلاميذ</p>
             <p className="mt-2 text-2xl font-bold">{summary.totalStudents}</p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Grades Entered</p>
+            <p className="text-sm text-slate-500">الأعداد المدخلة</p>
             <p className="mt-2 text-2xl font-bold">{summary.enteredCount}</p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Current Average</p>
+            <p className="text-sm text-slate-500">المعدل الحالي</p>
             <p className="mt-2 text-2xl font-bold">
               {summary.average !== null ? summary.average.toFixed(2) : "-"}
             </p>
           </div>
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Highest Score</p>
+            <p className="text-sm text-slate-500">أعلى عدد</p>
             <p className="mt-2 text-2xl font-bold">
               {summary.highest !== null ? summary.highest.toFixed(2) : "-"}
             </p>
@@ -646,17 +689,16 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-lg font-semibold">Grade Sheet</h3>
+            <h3 className="text-lg font-semibold">ورقة الأعداد</h3>
             <p className="text-sm text-slate-500">
-              {(PERIOD_OPTIONS.find((item) => item.value === period)?.label ?? period)} •{" "}
-              {examType.trim() || "No exam type selected"}
+              {getPeriodLabel(period)} • {examType.trim() || "لم يتم اختيار نوع الامتحان"}
             </p>
           </div>
 
           <div className="flex flex-col gap-3 md:flex-row">
             <input
               type="text"
-              placeholder="Search student by name or email..."
+              placeholder="البحث عن تلميذ بالاسم أو البريد الإلكتروني..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
@@ -667,52 +709,56 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
               disabled={saving || rows.length === 0}
               className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save Grades"}
+              {saving ? "جارٍ الحفظ..." : "حفظ الأعداد"}
             </button>
           </div>
         </div>
 
         {loadingLookups ? (
-          <LoadingState message="Loading classes and subjects..." />
+          <LoadingState message="جارٍ تحميل الأقسام والمواد..." />
         ) : loadingGrades ? (
-          <LoadingState message="Loading grade sheet..." />
+          <LoadingState message="جارٍ تحميل ورقة الأعداد..." />
         ) : !selectedClassId || !selectedSubjectId ? (
-          <EmptyState message="Please select a class and subject." />
+          <EmptyState message="يرجى اختيار القسم والمادة." />
         ) : filteredRows.length === 0 ? (
-          <EmptyState message="No students found for the current search." />
+          <EmptyState message="لا يوجد تلاميذ مطابقون للبحث الحالي." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse">
               <thead>
-                <tr className="border-b text-left text-sm text-slate-500">
-                  <th className="px-3 py-3 font-medium">Student</th>
-                  <th className="px-3 py-3 font-medium">Email</th>
-                  <th className="px-3 py-3 font-medium">Score / 20</th>
-                  <th className="px-3 py-3 font-medium">Comments</th>
-                  <th className="px-3 py-3 font-medium">Actions</th>
+                <tr className="border-b text-right text-sm text-slate-500">
+                  <th className="px-3 py-3 font-medium">التلميذ</th>
+                  <th className="px-3 py-3 font-medium">البريد الإلكتروني</th>
+                  <th className="px-3 py-3 font-medium">العدد / 20</th>
+                  <th className="px-3 py-3 font-medium">الملاحظات</th>
+                  <th className="px-3 py-3 font-medium">الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.map((row) => (
                   <tr key={row.studentId} className="border-b last:border-b-0">
                     <td className="px-3 py-3 font-medium">{row.fullName}</td>
-                    <td className="px-3 py-3 text-sm text-slate-600">
+
+                    <td className="px-3 py-3 text-left text-sm text-slate-600" dir="ltr">
                       {row.email || "-"}
                     </td>
+
                     <td className="px-3 py-3">
                       <input
                         type="number"
                         min="0"
                         max="20"
                         step="0.25"
+                        dir="ltr"
                         value={row.score}
                         onChange={(e) =>
                           handleRowChange(row.studentId, "score", e.target.value)
                         }
-                        placeholder="e.g. 15.5"
-                        className="w-32 rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                        placeholder="15.5"
+                        className="w-32 rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
                       />
                     </td>
+
                     <td className="px-3 py-3">
                       <input
                         type="text"
@@ -720,17 +766,20 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
                         onChange={(e) =>
                           handleRowChange(row.studentId, "comments", e.target.value)
                         }
-                        placeholder="Optional comment"
+                        placeholder="ملاحظة اختيارية"
                         className="w-full min-w-[220px] rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
                       />
                     </td>
+
                     <td className="px-3 py-3">
                       <button
                         onClick={() => handleNotifyBulletin(row.studentId)}
                         disabled={notifyingStudentId === row.studentId}
                         className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
                       >
-                        {notifyingStudentId === row.studentId ? "Sending..." : "Notify Bulletin"}
+                        {notifyingStudentId === row.studentId
+                          ? "جارٍ الإرسال..."
+                          : "إشعار بطاقة الأعداد"}
                       </button>
                     </td>
                   </tr>
