@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useToast } from "../../components/common/ToastProvider";
 import { apiGet } from "../../lib/api";
 
@@ -98,14 +98,49 @@ async function apiRequest<T>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error((data as { error?: string }).error || "Request failed");
+    throw new Error((data as { error?: string }).error || "تعذر تنفيذ الطلب.");
   }
 
   return data as T;
 }
 
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("class") ||
+    normalized.includes("subject") ||
+    normalized.includes("title") ||
+    normalized.includes("due date")
+  ) {
+    return "القسم والمادة والعنوان والأجل مطلوبة.";
+  }
+
+  if (normalized.includes("teacher")) {
+    return "يرجى اختيار المعلّم.";
+  }
+
+  if (normalized.includes("load")) {
+    return "تعذر تحميل الواجبات.";
+  }
+
+  if (normalized.includes("save")) {
+    return "تعذر حفظ الواجب.";
+  }
+
+  if (normalized.includes("delete")) {
+    return "تعذر حذف الواجب.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
+
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("ar-TN");
 }
 
 function toInputDateTime(value: string) {
@@ -113,6 +148,14 @@ function toInputDateTime(value: string) {
   const offset = date.getTimezoneOffset();
   const local = new Date(date.getTime() - offset * 60000);
   return local.toISOString().slice(0, 16);
+}
+
+function teacherLabel(teacher: TeacherItem) {
+  const fullName = `${teacher.user?.firstName ?? ""} ${
+    teacher.user?.lastName ?? ""
+  }`.trim();
+
+  return fullName || teacher.user?.email || "معلّم";
 }
 
 export default function AssignmentsPage({
@@ -124,7 +167,6 @@ export default function AssignmentsPage({
   const role =
     typeof window !== "undefined" ? localStorage.getItem("role") || "" : "";
   const isTeacher = role === "TEACHER";
-  const isAdmin = role === "ADMIN";
 
   const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -146,7 +188,7 @@ export default function AssignmentsPage({
   const [error, setError] = useState("");
 
   const pageTitle = useMemo(
-    () => (editingId ? "Edit Assignment" : "Create Assignment"),
+    () => (editingId ? "تعديل واجب" : "إنشاء واجب"),
     [editingId]
   );
 
@@ -155,7 +197,10 @@ export default function AssignmentsPage({
       const [classesData, subjectsData, teacherOverview] = await Promise.all([
         apiRequest<ClassItem[]>(`${apiBaseUrl}/api/classes`, token),
         apiRequest<SubjectItem[]>(`${apiBaseUrl}/api/subjects`, token),
-        apiGet<TeacherOverviewResponse>(`${apiBaseUrl}/api/my-teacher-overview`, token),
+        apiGet<TeacherOverviewResponse>(
+          `${apiBaseUrl}/api/my-teacher-overview`,
+          token
+        ),
       ]);
 
       setClasses(Array.isArray(classesData) ? classesData : []);
@@ -186,14 +231,18 @@ export default function AssignmentsPage({
         `${apiBaseUrl}/api/my-teacher-overview`,
         token
       );
+
       setAssignments(Array.isArray(json?.assignments) ? json.assignments : []);
+
       if (json?.teacher?.id) {
         setMyTeacherId(json.teacher.id);
       }
+
       return;
     }
 
     const params = new URLSearchParams();
+
     if (filters.classId) params.set("classId", filters.classId);
     if (filters.subjectId) params.set("subjectId", filters.subjectId);
 
@@ -211,13 +260,15 @@ export default function AssignmentsPage({
       try {
         setLoading(true);
         setError("");
+
         await fetchLookups();
         await fetchAssignments();
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Failed to load assignments";
-        setError(message);
-        showToast(message, "error");
+          err instanceof Error ? err.message : "تعذر تحميل الواجبات.";
+        const translated = translateError(message);
+        setError(translated);
+        showToast(translated, "error");
       } finally {
         setLoading(false);
       }
@@ -235,9 +286,10 @@ export default function AssignmentsPage({
         await fetchAssignments();
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Failed to load assignments";
-        setError(message);
-        showToast(message, "error");
+          err instanceof Error ? err.message : "تعذر تحميل الواجبات.";
+        const translated = translateError(message);
+        setError(translated);
+        showToast(translated, "error");
       }
     };
 
@@ -252,7 +304,7 @@ export default function AssignmentsPage({
     setEditingId(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
@@ -261,19 +313,19 @@ export default function AssignmentsPage({
       const resolvedTeacherId = isTeacher ? myTeacherId : form.teacherId;
 
       if (!form.classId || !form.subjectId || !form.title || !form.dueDate) {
-        throw new Error("Class, subject, title and due date are required.");
+        throw new Error("القسم والمادة والعنوان والأجل مطلوبة.");
       }
 
       if (!resolvedTeacherId) {
-        throw new Error("Teacher is required.");
+        throw new Error("يرجى اختيار المعلّم.");
       }
 
       const payload = {
         classId: form.classId,
         subjectId: form.subjectId,
         teacherId: resolvedTeacherId,
-        title: form.title,
-        description: form.description || null,
+        title: form.title.trim(),
+        description: form.description.trim() || null,
         dueDate: new Date(form.dueDate).toISOString(),
       };
 
@@ -290,22 +342,23 @@ export default function AssignmentsPage({
             }),
           }
         );
-        showToast("Assignment updated successfully.", "success");
+        showToast("تم تعديل الواجب بنجاح.", "success");
       } else {
         await apiRequest<AssignmentItem>(`${apiBaseUrl}/api/assignments`, token, {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        showToast("Assignment created successfully.", "success");
+        showToast("تم إنشاء الواجب بنجاح.", "success");
       }
 
       resetForm();
       await fetchAssignments();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to save assignment";
-      setError(message);
-      showToast(message, "error");
+        err instanceof Error ? err.message : "تعذر حفظ الواجب.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     } finally {
       setSaving(false);
     }
@@ -322,6 +375,7 @@ export default function AssignmentsPage({
       dueDate: toInputDateTime(assignment.dueDate),
     });
     setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = (assignmentId: string) => {
@@ -342,7 +396,7 @@ export default function AssignmentsPage({
         }
       );
 
-      showToast("Assignment deleted successfully.", "success");
+      showToast("تم حذف الواجب بنجاح.", "success");
       setPendingDeleteId(null);
 
       if (editingId === pendingDeleteId) {
@@ -352,9 +406,10 @@ export default function AssignmentsPage({
       await fetchAssignments();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to delete assignment";
-      setError(message);
-      showToast(message, "error");
+        err instanceof Error ? err.message : "تعذر حذف الواجب.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
     }
   };
 
@@ -373,17 +428,17 @@ export default function AssignmentsPage({
   }, [assignments, filters.classId, filters.subjectId, isTeacher]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">
-              {isTeacher ? "My Assignments" : "Assignments"}
+              {isTeacher ? "واجباتي" : "الواجبات"}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {isTeacher
-                ? "Create and manage your own homework assignments."
-                : "Create, update, filter, and manage homework assignments."}
+                ? "إنشاء واجباتك وتعديلها ومتابعة آجالها."
+                : "إنشاء الواجبات وتعديلها وتصفيتها حسب القسم والمادة."}
             </p>
           </div>
 
@@ -391,7 +446,7 @@ export default function AssignmentsPage({
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Filter by Class
+                  التصفية حسب القسم
                 </label>
                 <select
                   value={filters.classId}
@@ -400,7 +455,7 @@ export default function AssignmentsPage({
                   }
                   className="w-full rounded-xl border px-3 py-2"
                 >
-                  <option value="">All classes</option>
+                  <option value="">كل الأقسام</option>
                   {classes.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -411,7 +466,7 @@ export default function AssignmentsPage({
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Filter by Subject
+                  التصفية حسب المادة
                 </label>
                 <select
                   value={filters.subjectId}
@@ -420,7 +475,7 @@ export default function AssignmentsPage({
                   }
                   className="w-full rounded-xl border px-3 py-2"
                 >
-                  <option value="">All subjects</option>
+                  <option value="">كل المواد</option>
                   {subjects.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -448,7 +503,7 @@ export default function AssignmentsPage({
                 onClick={resetForm}
                 className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700"
               >
-                Cancel
+                إلغاء
               </button>
             ) : null}
           </div>
@@ -456,7 +511,7 @@ export default function AssignmentsPage({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Class
+                القسم
               </label>
               <select
                 value={form.classId}
@@ -466,7 +521,7 @@ export default function AssignmentsPage({
                 className="w-full rounded-xl border px-3 py-2"
                 required
               >
-                <option value="">Select class</option>
+                <option value="">اختر قسمًا</option>
                 {classes.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
@@ -477,7 +532,7 @@ export default function AssignmentsPage({
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Subject
+                المادة
               </label>
               <select
                 value={form.subjectId}
@@ -487,7 +542,7 @@ export default function AssignmentsPage({
                 className="w-full rounded-xl border px-3 py-2"
                 required
               >
-                <option value="">Select subject</option>
+                <option value="">اختر مادة</option>
                 {subjects.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
@@ -499,7 +554,7 @@ export default function AssignmentsPage({
             {!isTeacher ? (
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Teacher
+                  المعلّم
                 </label>
                 <select
                   value={form.teacherId}
@@ -508,10 +563,10 @@ export default function AssignmentsPage({
                   }
                   className="w-full rounded-xl border px-3 py-2"
                 >
-                  <option value="">No teacher</option>
+                  <option value="">اختر معلّمًا</option>
                   {teachers.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.user?.firstName} {item.user?.lastName}
+                      {teacherLabel(item)}
                     </option>
                   ))}
                 </select>
@@ -519,20 +574,20 @@ export default function AssignmentsPage({
             ) : (
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Teacher
+                  المعلّم
                 </label>
                 <input
                   type="text"
-                  value="Assigned to me"
+                  value="مسند إليّ"
                   disabled
-                  className="w-full rounded-xl border px-3 py-2 bg-slate-50 text-slate-500"
+                  className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-slate-500"
                 />
               </div>
             )}
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Title
+                العنوان
               </label>
               <input
                 type="text"
@@ -541,14 +596,14 @@ export default function AssignmentsPage({
                   setForm((prev) => ({ ...prev, title: e.target.value }))
                 }
                 className="w-full rounded-xl border px-3 py-2"
-                placeholder="Assignment title"
+                placeholder="عنوان الواجب"
                 required
               />
             </div>
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Description
+                الوصف
               </label>
               <textarea
                 value={form.description}
@@ -556,21 +611,22 @@ export default function AssignmentsPage({
                   setForm((prev) => ({ ...prev, description: e.target.value }))
                 }
                 className="min-h-[110px] w-full rounded-xl border px-3 py-2"
-                placeholder="Assignment instructions"
+                placeholder="تعليمات الواجب"
               />
             </div>
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Due date
+                الأجل
               </label>
               <input
                 type="datetime-local"
+                dir="ltr"
                 value={form.dueDate}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, dueDate: e.target.value }))
                 }
-                className="w-full rounded-xl border px-3 py-2"
+                className="w-full rounded-xl border px-3 py-2 text-left"
                 required
               />
             </div>
@@ -580,7 +636,11 @@ export default function AssignmentsPage({
               disabled={saving}
               className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
             >
-              {saving ? "Saving..." : editingId ? "Update Assignment" : "Create Assignment"}
+              {saving
+                ? "جارٍ الحفظ..."
+                : editingId
+                  ? "تعديل الواجب"
+                  : "إنشاء الواجب"}
             </button>
           </form>
         </div>
@@ -588,17 +648,17 @@ export default function AssignmentsPage({
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-900">
-              {isTeacher ? "My Assignment List" : "Assignment List"}
+              {isTeacher ? "قائمة واجباتي" : "قائمة الواجبات"}
             </h3>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-              {visibleAssignments.length} item(s)
+              {visibleAssignments.length} عنصر
             </span>
           </div>
 
           {loading ? (
-            <p className="text-sm text-slate-500">Loading assignments...</p>
+            <p className="text-sm text-slate-500">جارٍ تحميل الواجبات...</p>
           ) : visibleAssignments.length === 0 ? (
-            <p className="text-sm text-slate-500">No assignments found.</p>
+            <p className="text-sm text-slate-500">لا توجد واجبات.</p>
           ) : (
             <div className="space-y-4">
               {visibleAssignments.map((assignment) => (
@@ -618,26 +678,27 @@ export default function AssignmentsPage({
                       </div>
 
                       <p className="text-sm text-slate-600">
-                        {assignment.description || "No description"}
+                        {assignment.description || "لا يوجد وصف."}
                       </p>
 
                       <div className="grid gap-2 text-sm text-slate-500 sm:grid-cols-2">
                         <p>
-                          <span className="font-medium text-slate-700">Class:</span>{" "}
+                          <span className="font-medium text-slate-700">القسم:</span>{" "}
                           {assignment.class?.name}
                         </p>
                         <p>
-                          <span className="font-medium text-slate-700">Teacher:</span>{" "}
-                          {assignment.teacher?.user?.firstName}{" "}
-                          {assignment.teacher?.user?.lastName || "-"}
+                          <span className="font-medium text-slate-700">المعلّم:</span>{" "}
+                          {assignment.teacher
+                            ? teacherLabel(assignment.teacher)
+                            : "-"}
                         </p>
                         <p>
-                          <span className="font-medium text-slate-700">Due:</span>{" "}
+                          <span className="font-medium text-slate-700">الأجل:</span>{" "}
                           {formatDateTime(assignment.dueDate)}
                         </p>
                         <p>
                           <span className="font-medium text-slate-700">
-                            Submissions:
+                            عدد التسليمات:
                           </span>{" "}
                           {assignment._count?.submissions ?? 0}
                         </p>
@@ -649,13 +710,13 @@ export default function AssignmentsPage({
                         onClick={() => handleEdit(assignment)}
                         className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700"
                       >
-                        Edit
+                        تعديل
                       </button>
                       <button
                         onClick={() => handleDelete(assignment.id)}
                         className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white"
                       >
-                        Delete
+                        حذف
                       </button>
                     </div>
                   </div>
@@ -668,12 +729,12 @@ export default function AssignmentsPage({
 
       {pendingDeleteId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-right shadow-xl" dir="rtl">
             <h3 className="text-lg font-semibold text-slate-900">
-              Confirm deletion
+              تأكيد الحذف
             </h3>
             <p className="mt-2 text-sm text-slate-600">
-              This action will permanently delete this assignment.
+              سيتم حذف هذا الواجب نهائيًا.
             </p>
 
             <div className="mt-6 flex justify-end gap-3">
@@ -681,13 +742,13 @@ export default function AssignmentsPage({
                 onClick={() => setPendingDeleteId(null)}
                 className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700"
               >
-                Cancel
+                إلغاء
               </button>
               <button
                 onClick={confirmDelete}
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white"
               >
-                Delete
+                حذف
               </button>
             </div>
           </div>
