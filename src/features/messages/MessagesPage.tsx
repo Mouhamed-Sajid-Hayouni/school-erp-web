@@ -54,6 +54,13 @@ type MessagesPageProps = {
   onInitialConversationOpened?: () => void;
 };
 
+const roleLabels: Record<Role, string> = {
+  ADMIN: "مدير النظام",
+  TEACHER: "معلّم",
+  STUDENT: "تلميذ",
+  PARENT: "ولي",
+};
+
 const getToken = () => localStorage.getItem("token");
 
 const authHeaders = () => ({
@@ -66,8 +73,42 @@ const formatUserName = (user: UserSummary) => {
 };
 
 const formatDateTime = (value: string) => {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("ar-TN");
 };
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("recipients")) {
+    return "تعذر تحميل قائمة المستلمين.";
+  }
+
+  if (normalized.includes("conversations")) {
+    return "تعذر تحميل المحادثات.";
+  }
+
+  if (normalized.includes("conversation")) {
+    return "تعذر تحميل المحادثة.";
+  }
+
+  if (normalized.includes("recipient")) {
+    return "يرجى اختيار مستلم.";
+  }
+
+  if (normalized.includes("message")) {
+    return "يرجى كتابة رسالة.";
+  }
+
+  if (normalized.includes("send")) {
+    return "تعذر إرسال الرسالة.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
+}
 
 export default function MessagesPage({
   initialConversationId,
@@ -108,7 +149,7 @@ export default function MessagesPage({
     }
 
     const data = await response.json();
-    setRecipients(data);
+    setRecipients(Array.isArray(data) ? data : []);
   };
 
   const fetchConversations = async () => {
@@ -127,7 +168,7 @@ export default function MessagesPage({
       }
 
       const data = await response.json();
-      setConversations(data);
+      setConversations(Array.isArray(data) ? data : []);
     } finally {
       setIsLoadingConversations(false);
     }
@@ -161,12 +202,12 @@ export default function MessagesPage({
     setError("");
 
     if (!selectedRecipientId) {
-      setError("Please choose a recipient.");
+      setError("يرجى اختيار مستلم.");
       return;
     }
 
     if (!newConversationMessage.trim()) {
-      setError("Please write a message.");
+      setError("يرجى كتابة رسالة.");
       return;
     }
 
@@ -201,9 +242,9 @@ export default function MessagesPage({
         await fetchConversationDetails(data.conversation.id);
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to create conversation."
-      );
+      const message =
+        err instanceof Error ? err.message : "تعذر إنشاء المحادثة.";
+      setError(translateError(message));
     } finally {
       setIsCreatingConversation(false);
     }
@@ -215,7 +256,7 @@ export default function MessagesPage({
     if (!selectedConversationId) return;
 
     if (!replyBody.trim()) {
-      setError("Please write a message.");
+      setError("يرجى كتابة رسالة.");
       return;
     }
 
@@ -241,7 +282,9 @@ export default function MessagesPage({
       setReplyBody("");
       await fetchConversationDetails(selectedConversationId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send message.");
+      const message =
+        err instanceof Error ? err.message : "تعذر إرسال الرسالة.";
+      setError(translateError(message));
     } finally {
       setIsSendingReply(false);
     }
@@ -254,9 +297,9 @@ export default function MessagesPage({
       try {
         await Promise.all([fetchRecipients(), fetchConversations()]);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load messages."
-        );
+        const message =
+          err instanceof Error ? err.message : "تعذر تحميل الرسائل.";
+        setError(translateError(message));
       }
     };
 
@@ -271,9 +314,9 @@ export default function MessagesPage({
         setError("");
         await fetchConversationDetails(initialConversationId);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to open conversation."
-        );
+        const message =
+          err instanceof Error ? err.message : "تعذر فتح المحادثة.";
+        setError(translateError(message));
       } finally {
         onInitialConversationOpened?.();
       }
@@ -284,11 +327,11 @@ export default function MessagesPage({
   }, [initialConversationId]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-right" dir="rtl">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Messages</h1>
+        <h1 className="text-3xl font-bold text-slate-900">الرسائل</h1>
         <p className="text-sm text-slate-500">
-          Send private messages between admins, teachers, students, and parents.
+          إرسال رسائل خاصة بين المديرين والمعلّمين والتلاميذ والأولياء.
         </p>
       </div>
 
@@ -302,7 +345,7 @@ export default function MessagesPage({
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-lg font-semibold text-slate-900">
-              New conversation
+              محادثة جديدة
             </h2>
 
             <div className="space-y-3">
@@ -311,17 +354,17 @@ export default function MessagesPage({
                 onChange={(event) => setSelectedRecipientId(event.target.value)}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
               >
-                <option value="">Choose recipient</option>
+                <option value="">اختر المستلم</option>
                 {recipients.map((recipient) => (
                   <option key={recipient.id} value={recipient.id}>
-                    {formatUserName(recipient)} â€” {recipient.role}
+                    {formatUserName(recipient)} — {roleLabels[recipient.role]}
                   </option>
                 ))}
               </select>
 
               {selectedRecipient && (
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                  Sending to{" "}
+                  سيتم الإرسال إلى{" "}
                   <span className="font-semibold">
                     {formatUserName(selectedRecipient)}
                   </span>
@@ -334,7 +377,7 @@ export default function MessagesPage({
                   setNewConversationMessage(event.target.value)
                 }
                 rows={4}
-                placeholder="Write your first message..."
+                placeholder="اكتب رسالتك الأولى..."
                 className="w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
               />
 
@@ -344,7 +387,7 @@ export default function MessagesPage({
                 disabled={isCreatingConversation}
                 className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isCreatingConversation ? "Starting..." : "Start conversation"}
+                {isCreatingConversation ? "جارٍ البدء..." : "بدء المحادثة"}
               </button>
             </div>
           </div>
@@ -352,17 +395,17 @@ export default function MessagesPage({
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-4 py-3">
               <h2 className="text-lg font-semibold text-slate-900">
-                Conversations
+                المحادثات
               </h2>
             </div>
 
             {isLoadingConversations ? (
               <div className="p-4 text-sm text-slate-500">
-                Loading conversations...
+                جارٍ تحميل المحادثات...
               </div>
             ) : conversations.length === 0 ? (
               <div className="p-4 text-sm text-slate-500">
-                No conversations yet.
+                لا توجد محادثات بعد.
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
@@ -373,7 +416,7 @@ export default function MessagesPage({
                       .map((participant) => participant.user)
                       .filter(Boolean)
                       .map(formatUserName)
-                      .join(", ");
+                      .join("، ");
 
                   const isSelected = conversation.id === selectedConversationId;
 
@@ -382,19 +425,19 @@ export default function MessagesPage({
                       key={conversation.id}
                       type="button"
                       onClick={() => fetchConversationDetails(conversation.id)}
-                      className={`w-full px-4 py-3 text-left hover:bg-slate-50 ${
+                      className={`w-full px-4 py-3 text-right hover:bg-slate-50 ${
                         isSelected ? "bg-blue-50" : "bg-white"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-semibold text-slate-900">
-                            {title || "Conversation"}
+                            {title || "محادثة"}
                           </div>
                           <div className="mt-1 truncate text-xs text-slate-500">
                             {conversation.lastMessage
                               ? conversation.lastMessage.body
-                              : "No messages yet"}
+                              : "لا توجد رسائل بعد"}
                           </div>
                         </div>
 
@@ -417,16 +460,16 @@ export default function MessagesPage({
             <div className="flex min-h-[520px] items-center justify-center p-8 text-center">
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">
-                  Select a conversation
+                  اختر محادثة
                 </h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  Choose an existing conversation or start a new one.
+                  اختر محادثة موجودة أو ابدأ محادثة جديدة.
                 </p>
               </div>
             </div>
           ) : isLoadingConversation ? (
             <div className="p-6 text-sm text-slate-500">
-              Loading conversation...
+              جارٍ تحميل المحادثة...
             </div>
           ) : selectedConversation ? (
             <div className="flex min-h-[520px] flex-col">
@@ -435,16 +478,18 @@ export default function MessagesPage({
                   {selectedConversation.title ||
                     selectedConversation.participants
                       .map((participant) => formatUserName(participant.user))
-                      .join(", ")}
+                      .join("، ")}
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  {selectedConversation.participants.length} participant(s)
+                  {selectedConversation.participants.length} مشارك
                 </p>
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-5">
                 {selectedConversation.messages.length === 0 ? (
-                  <div className="text-sm text-slate-500">No messages yet.</div>
+                  <div className="text-sm text-slate-500">
+                    لا توجد رسائل بعد.
+                  </div>
                 ) : (
                   selectedConversation.messages.map((message) => (
                     <div
@@ -474,7 +519,7 @@ export default function MessagesPage({
                     value={replyBody}
                     onChange={(event) => setReplyBody(event.target.value)}
                     rows={2}
-                    placeholder="Write a reply..."
+                    placeholder="اكتب ردًا..."
                     className="flex-1 resize-none rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
                   />
 
@@ -484,14 +529,14 @@ export default function MessagesPage({
                     disabled={isSendingReply}
                     className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isSendingReply ? "Sending..." : "Send"}
+                    {isSendingReply ? "جارٍ الإرسال..." : "إرسال"}
                   </button>
                 </div>
               </div>
             </div>
           ) : (
             <div className="p-6 text-sm text-slate-500">
-              Conversation not found.
+              لم يتم العثور على المحادثة.
             </div>
           )}
         </div>
