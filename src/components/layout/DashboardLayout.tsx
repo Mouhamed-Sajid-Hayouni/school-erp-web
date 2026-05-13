@@ -51,7 +51,7 @@ const roleLabels: Record<string, string> = {
   ADMIN: "مدير النظام",
   TEACHER: "معلّم",
   PARENT: "ولي",
-  STUDENT: "تلميذ",
+  STUDENT: "تلميذ - بدون دخول مباشر",
 };
 
 const adminTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
@@ -182,7 +182,8 @@ export default function DashboardLayout({
   onOpenMessages,
   children,
 }: DashboardLayoutProps) {
-  const isPortalOnly = role === "STUDENT" || role === "PARENT";
+  const isParentPortal = role === "PARENT";
+  const isStudentBlocked = role === "STUDENT";
   const isTeacher = role === "TEACHER";
 
   const initials =
@@ -267,19 +268,26 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          <div className="border-b p-4">
-            <NotificationsBell
-              apiBaseUrl={apiBaseUrl}
-              token={token}
-              onOpenMessages={(conversationId) => {
-                onOpenMessages?.(conversationId);
-              }}
-            />
-          </div>
+          {!isStudentBlocked && (
+            <div className="border-b p-4">
+              <NotificationsBell
+                apiBaseUrl={apiBaseUrl}
+                token={token}
+                onOpenMessages={(conversationId) => {
+                  onOpenMessages?.(conversationId);
+                }}
+              />
+            </div>
+          )}
 
           <nav className="p-4">
             <div className="space-y-2">
-              {isPortalOnly ? (
+              {isStudentBlocked ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  حسابات التلاميذ لا تستعمل الدخول المباشر إلى النظام.
+                  الرجاء استعمال حساب الولي.
+                </div>
+              ) : isParentPortal ? (
                 <>
                   <button
                     onClick={() => onTabChange("portal")}
