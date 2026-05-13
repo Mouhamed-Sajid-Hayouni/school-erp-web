@@ -55,8 +55,41 @@ async function apiRequest<T>(
   return data as T;
 }
 
+function translateError(message: string) {
+  if (message.includes("Only parents")) {
+    return "هذه الصفحة مخصصة للأولياء فقط.";
+  }
+
+  if (message.includes("Access denied") || message.includes("Invalid token")) {
+    return "انتهت الجلسة أو لا تملك صلاحية الوصول.";
+  }
+
+  return "تعذر تحميل الإعلانات.";
+}
+
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString("ar-TN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function getAudienceLabel(audience: AnnouncementAudience) {
+  const labels: Record<AnnouncementAudience, string> = {
+    ALL: "إعلان عام",
+    STUDENTS: "خاص بالأولياء بخصوص التلاميذ",
+    PARENTS: "خاص بالأولياء",
+    TEACHERS: "خاص بالأساتذة",
+    CLASS: "خاص بالقسم",
+  };
+
+  return labels[audience];
 }
 
 function AudienceBadge({ audience }: { audience: AnnouncementAudience }) {
@@ -69,8 +102,10 @@ function AudienceBadge({ audience }: { audience: AnnouncementAudience }) {
   };
 
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[audience]}`}>
-      {audience}
+    <span
+      className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[audience]}`}
+    >
+      {getAudienceLabel(audience)}
     </span>
   );
 }
@@ -105,9 +140,10 @@ export default function AnnouncementsSection({
 
         setAnnouncements(data);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load announcements"
-        );
+        const message =
+          err instanceof Error ? err.message : "Failed to load announcements";
+
+        setError(translateError(message));
       } finally {
         setLoading(false);
       }
@@ -118,8 +154,12 @@ export default function AnnouncementsSection({
 
   const stats = useMemo(() => {
     const total = announcements.length;
-    const classSpecific = announcements.filter((item) => item.audience === "CLASS").length;
-    const global = announcements.filter((item) => item.audience === "ALL").length;
+    const classSpecific = announcements.filter(
+      (item) => item.audience === "CLASS"
+    ).length;
+    const global = announcements.filter(
+      (item) => item.audience === "ALL"
+    ).length;
 
     const last7Days = announcements.filter((item) => {
       const createdAt = new Date(item.createdAt).getTime();
@@ -131,11 +171,11 @@ export default function AnnouncementsSection({
   }, [announcements]);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 text-right" dir="rtl">
       <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <h3 className="text-2xl font-bold text-slate-900">Announcements</h3>
+        <h3 className="text-2xl font-bold text-slate-900">الإعلانات</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Important school updates and targeted class announcements.
+          آخر الإعلانات المدرسية الموجهة للأولياء أو الخاصة بقسم ابنكم.
         </p>
       </div>
 
@@ -146,21 +186,23 @@ export default function AnnouncementsSection({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total announcements" value={stats.total} />
-        <StatCard label="Global announcements" value={stats.global} />
-        <StatCard label="Class-specific" value={stats.classSpecific} />
-        <StatCard label="Last 7 days" value={stats.last7Days} />
+        <StatCard label="مجموع الإعلانات" value={stats.total} />
+        <StatCard label="إعلانات عامة" value={stats.global} />
+        <StatCard label="إعلانات القسم" value={stats.classSpecific} />
+        <StatCard label="آخر 7 أيام" value={stats.last7Days} />
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h4 className="mb-4 text-lg font-semibold text-slate-900">
-          Announcement List
+          قائمة الإعلانات
         </h4>
 
         {loading ? (
-          <p className="text-sm text-slate-500">Loading announcements...</p>
+          <p className="text-sm text-slate-500">جارٍ تحميل الإعلانات...</p>
         ) : announcements.length === 0 ? (
-          <p className="text-sm text-slate-500">No announcements available.</p>
+          <p className="text-sm text-slate-500">
+            لا توجد إعلانات متاحة حالياً.
+          </p>
         ) : (
           <div className="space-y-4">
             {announcements.map((item) => (
@@ -189,19 +231,31 @@ export default function AnnouncementsSection({
 
                   <div className="grid gap-2 text-sm text-slate-500 sm:grid-cols-2">
                     <p>
-                      <span className="font-medium text-slate-700">Published:</span>{" "}
+                      <span className="font-medium text-slate-700">
+                        تاريخ النشر:
+                      </span>{" "}
                       {formatDateTime(item.createdAt)}
                     </p>
+
                     <p>
-                      <span className="font-medium text-slate-700">Author:</span>{" "}
-                      {item.createdBy?.firstName} {item.createdBy?.lastName}
+                      <span className="font-medium text-slate-700">
+                        الناشر:
+                      </span>{" "}
+                      {item.createdBy?.firstName || "-"}{" "}
+                      {item.createdBy?.lastName || ""}
                     </p>
+
                     <p>
-                      <span className="font-medium text-slate-700">Audience:</span>{" "}
-                      {item.audience}
+                      <span className="font-medium text-slate-700">
+                        الفئة:
+                      </span>{" "}
+                      {getAudienceLabel(item.audience)}
                     </p>
+
                     <p>
-                      <span className="font-medium text-slate-700">Class:</span>{" "}
+                      <span className="font-medium text-slate-700">
+                        القسم:
+                      </span>{" "}
                       {item.class?.name || "-"}
                     </p>
                   </div>
