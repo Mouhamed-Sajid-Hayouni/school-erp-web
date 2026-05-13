@@ -28,9 +28,9 @@ export type StudentBulletinResponse = {
 };
 
 const periodLabelMap: Record<GradePeriod, string> = {
-  TRIMESTER_1: "Trimester 1",
-  TRIMESTER_2: "Trimester 2",
-  TRIMESTER_3: "Trimester 3",
+  TRIMESTER_1: "الثلاثي الأول",
+  TRIMESTER_2: "الثلاثي الثاني",
+  TRIMESTER_3: "الثلاثي الثالث",
 };
 
 function escapeHtml(value: string) {
@@ -50,7 +50,7 @@ export async function exportBulletinPdf(data: StudentBulletinResponse) {
     .map(
       (subject) => `
         <tr>
-          <td class="rtl-cell">${escapeHtml(subject.subjectName)}</td>
+          <td>${escapeHtml(subject.subjectName)}</td>
           <td>${subject.coefficient}</td>
           <td>${subject.gradesCount}</td>
           <td>${subject.average.toFixed(2)}</td>
@@ -61,10 +61,10 @@ export async function exportBulletinPdf(data: StudentBulletinResponse) {
 
   const html = `
     <!doctype html>
-    <html lang="en">
+    <html lang="ar" dir="rtl">
       <head>
         <meta charset="UTF-8" />
-        <title>Bulletin - ${escapeHtml(fullName)}</title>
+        <title>دفتر الأعداد - ${escapeHtml(fullName)}</title>
         <style>
           @page {
             size: A4;
@@ -77,6 +77,8 @@ export async function exportBulletinPdf(data: StudentBulletinResponse) {
             margin: 0;
             padding: 0;
             background: #ffffff;
+            direction: rtl;
+            text-align: right;
           }
 
           .page {
@@ -84,20 +86,32 @@ export async function exportBulletinPdf(data: StudentBulletinResponse) {
           }
 
           h1 {
-            margin: 0 0 20px 0;
+            margin: 0 0 8px 0;
             font-size: 26px;
+            color: #0f172a;
+          }
+
+          .subtitle {
+            margin: 0 0 20px 0;
+            font-size: 13px;
+            color: #64748b;
           }
 
           .meta {
             margin-bottom: 18px;
-            line-height: 1.8;
+            line-height: 1.9;
             font-size: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px;
+            background: #f8fafc;
           }
 
           .label {
             font-weight: 700;
             display: inline-block;
-            min-width: 120px;
+            min-width: 130px;
+            color: #334155;
           }
 
           table {
@@ -110,31 +124,37 @@ export async function exportBulletinPdf(data: StudentBulletinResponse) {
           th, td {
             border: 1px solid #cbd5e1;
             padding: 10px 12px;
-            text-align: left;
+            text-align: right;
             vertical-align: middle;
           }
 
           th {
-            background: #f8fafc;
+            background: #f1f5f9;
             font-weight: 700;
-          }
-
-          .rtl-cell {
-            direction: rtl;
-            unicode-bidi: plaintext;
-            text-align: right;
-            font-family: Arial, "Segoe UI", Tahoma, sans-serif;
+            color: #0f172a;
           }
 
           .summary {
             margin-top: 24px;
             line-height: 1.9;
             font-size: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px;
           }
 
           .summary-item strong {
             display: inline-block;
-            min-width: 150px;
+            min-width: 170px;
+            color: #334155;
+          }
+
+          .footer {
+            margin-top: 28px;
+            font-size: 12px;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 12px;
           }
 
           @media print {
@@ -145,25 +165,29 @@ export async function exportBulletinPdf(data: StudentBulletinResponse) {
           }
         </style>
       </head>
+
       <body>
         <div class="page">
-          <h1>School Bulletin</h1>
+          <h1>دفتر أعداد التلميذ</h1>
+          <p class="subtitle">
+            نسخة مخصصة للولي لمتابعة النتائج المدرسية للابن.
+          </p>
 
           <div class="meta">
-            <div><span class="label">Student:</span> ${escapeHtml(fullName)}</div>
-            <div><span class="label">Email:</span> ${escapeHtml(data.student.email)}</div>
-            <div><span class="label">Class:</span> <span class="rtl-cell">${escapeHtml(data.class?.name ?? "-")}</span></div>
-            <div><span class="label">Academic Year:</span> ${escapeHtml(data.class?.academicYear ?? "-")}</div>
-            <div><span class="label">Period:</span> ${escapeHtml(periodLabel)}</div>
+            <div><span class="label">التلميذ:</span> ${escapeHtml(fullName)}</div>
+            <div><span class="label">البريد الإلكتروني:</span> ${escapeHtml(data.student.email)}</div>
+            <div><span class="label">القسم:</span> ${escapeHtml(data.class?.name ?? "-")}</div>
+            <div><span class="label">السنة الدراسية:</span> ${escapeHtml(data.class?.academicYear ?? "-")}</div>
+            <div><span class="label">الفترة:</span> ${escapeHtml(periodLabel)}</div>
           </div>
 
           <table>
             <thead>
               <tr>
-                <th>Subject</th>
-                <th>Coefficient</th>
-                <th>Grades Count</th>
-                <th>Average / 20</th>
+                <th>المادة</th>
+                <th>المعامل</th>
+                <th>عدد الفروض</th>
+                <th>المعدل / 20</th>
               </tr>
             </thead>
             <tbody>
@@ -172,15 +196,19 @@ export async function exportBulletinPdf(data: StudentBulletinResponse) {
           </table>
 
           <div class="summary">
-            <div class="summary-item"><strong>Weighted Average:</strong> ${
+            <div class="summary-item"><strong>المعدل العام:</strong> ${
               data.generalAverage !== null ? data.generalAverage.toFixed(2) : "-"
             }</div>
-            <div class="summary-item"><strong>Best Score:</strong> ${
+            <div class="summary-item"><strong>أفضل عدد:</strong> ${
               data.bestScore !== null ? `${data.bestScore.toFixed(2)}/20` : "-"
             }</div>
-            <div class="summary-item"><strong>Grades Count:</strong> ${data.gradesCount}</div>
-            <div class="summary-item"><strong>Coefficient Sum:</strong> ${data.coefficientSum}</div>
-            <div class="summary-item"><strong>Absences Count:</strong> ${data.absencesCount}</div>
+            <div class="summary-item"><strong>مجموع الأعداد:</strong> ${data.gradesCount}</div>
+            <div class="summary-item"><strong>مجموع المعاملات:</strong> ${data.coefficientSum}</div>
+            <div class="summary-item"><strong>عدد الغيابات:</strong> ${data.absencesCount}</div>
+          </div>
+
+          <div class="footer">
+            تم استخراج هذا الدفتر من بوابة الولي.
           </div>
         </div>
 
@@ -196,7 +224,7 @@ export async function exportBulletinPdf(data: StudentBulletinResponse) {
   const printWindow = window.open("", "_blank", "width=900,height=700");
 
   if (!printWindow) {
-    throw new Error("Popup blocked. Please allow popups to export the bulletin.");
+    throw new Error("تعذر فتح نافذة الطباعة. الرجاء السماح بالنوافذ المنبثقة لاستخراج دفتر الأعداد.");
   }
 
   printWindow.document.open();
