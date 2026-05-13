@@ -51,7 +51,7 @@ function translateType(type: string) {
   if (normalized === "ASSIGNMENT") return "واجب";
   if (normalized === "ANNOUNCEMENT") return "إعلان";
   if (normalized === "GRADE") return "عدد";
-  if (normalized === "BULLETIN") return "بطاقة أعداد";
+  if (normalized === "BULLETIN") return "دفتر أعداد";
   if (normalized === "MESSAGE") return "رسالة";
 
   return "إشعار";
@@ -77,7 +77,7 @@ function translateNotificationText(value: string) {
   }
 
   if (normalized.includes("bulletin")) {
-    return "بطاقة أعداد";
+    return "دفتر الأعداد متاح";
   }
 
   return value;
