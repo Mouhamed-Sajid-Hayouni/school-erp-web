@@ -221,9 +221,6 @@ export default function AssignmentsSection({
   apiBaseUrl,
   token,
 }: AssignmentsSectionProps) {
-  const role = localStorage.getItem("role") || "";
-
-  const [studentAssignments, setStudentAssignments] = useState<Submission[]>([]);
   const [parentChildren, setParentChildren] = useState<ParentChildAssignments[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -231,18 +228,13 @@ export default function AssignmentsSection({
   const [error, setError] = useState("");
 
   const refresh = async () => {
-    const data = await apiRequest<Submission[] | ParentChildAssignments[]>(
+    const data = await apiRequest<ParentChildAssignments[]>(
       `${apiBaseUrl}/api/my-assignments`,
       token
     );
 
-    if (role === "PARENT") {
-      setParentChildren(Array.isArray(data) ? (data as ParentChildAssignments[]) : []);
-      setStudentAssignments([]);
-    } else {
-      setStudentAssignments(Array.isArray(data) ? (data as Submission[]) : []);
-      setParentChildren([]);
-    }
+    setParentChildren(Array.isArray(data) ? data : []);
+
   };
 
   useEffect(() => {
@@ -261,14 +253,12 @@ export default function AssignmentsSection({
     };
 
     run();
-  }, [apiBaseUrl, token, role]);
+  }, [apiBaseUrl, token]);
 
-  const allParentSubmissions = useMemo(
+  const allSubmissions = useMemo(
     () => parentChildren.flatMap((child) => child.submissions || []),
     [parentChildren]
-  );
-
-  const allSubmissions = role === "PARENT" ? allParentSubmissions : studentAssignments;
+);
 
   const stats = useMemo(() => {
     const total = allSubmissions.length;
@@ -289,7 +279,7 @@ export default function AssignmentsSection({
         method: "PUT",
         body: JSON.stringify({
           status: "DONE",
-          notes: "تم تحديد الواجب كمُنجز من الفضاء",
+          notes: "تم تحديد الواجب كمُنجز من فضاء الولي",
         }),
       });
 
@@ -309,7 +299,7 @@ export default function AssignmentsSection({
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h3 className="text-2xl font-bold text-slate-900">الواجبات</h3>
         <p className="mt-1 text-sm text-slate-500">
-          متابعة الواجبات والآجال وحالة الإنجاز.
+          متابعة واجبات الأبناء والآجال وحالة الإنجاز من فضاء الولي.
         </p>
       </div>
 
@@ -336,66 +326,48 @@ export default function AssignmentsSection({
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">جارٍ تحميل الواجبات...</p>
         </div>
-      ) : role === "PARENT" ? (
-        parentChildren.length === 0 ? (
+      ) : parentChildren.length === 0 ? (
+  <div className="rounded-2xl bg-white p-6 shadow-sm">
+    <p className="text-sm text-slate-500">
+      لا توجد واجبات لأبناء هذا الولي.
+    </p>
+  </div>
+) : (
+  <div className="space-y-6">
+    {parentChildren.map((child) => (
+      <div key={child.id} className="space-y-4">
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <h4 className="text-lg font-semibold text-slate-900">
+            {child.user?.firstName} {child.user?.lastName}
+          </h4>
+          <p className="mt-1 text-sm text-slate-500">
+            {child.submissions.length} واجب
+          </p>
+        </div>
+
+        {child.submissions.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <p className="text-sm text-slate-500">
-              لا توجد واجبات لأبناء هذا الولي.
+              لا توجد واجبات لهذا الابن.
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {parentChildren.map((child) => (
-              <div key={child.id} className="space-y-4">
-                <div className="rounded-2xl bg-white p-5 shadow-sm">
-                  <h4 className="text-lg font-semibold text-slate-900">
-                    {child.user?.firstName} {child.user?.lastName}
-                  </h4>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {child.submissions.length} واجب
-                  </p>
-                </div>
-
-                {child.submissions.length === 0 ? (
-                  <div className="rounded-2xl bg-white p-6 shadow-sm">
-                    <p className="text-sm text-slate-500">
-                      لا توجد واجبات لهذا التلميذ.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {child.submissions.map((submission) => (
-                      <SubmissionCard
-                        key={submission.id}
-                        submission={submission}
-                        onMarkDone={handleMarkDone}
-                        savingId={savingId}
-                        canMarkDone={true}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+          <div className="space-y-4">
+            {child.submissions.map((submission) => (
+              <SubmissionCard
+                key={submission.id}
+                submission={submission}
+                onMarkDone={handleMarkDone}
+                savingId={savingId}
+                canMarkDone={true}
+              />
             ))}
           </div>
-        )
-      ) : studentAssignments.length === 0 ? (
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">لا توجد واجبات.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {studentAssignments.map((submission) => (
-            <SubmissionCard
-              key={submission.id}
-              submission={submission}
-              onMarkDone={handleMarkDone}
-              savingId={savingId}
-              canMarkDone={true}
-            />
-          ))}
-        </div>
-      )}
+        )}
+      </div>
+    ))}
+  </div>
+)}
     </section>
   );
 }
