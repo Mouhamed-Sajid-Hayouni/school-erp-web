@@ -15,7 +15,6 @@ It supports:
 - schedule management
 - attendance management
 - grade management
-- student portal
 - parent portal
 
 ## Project Lead

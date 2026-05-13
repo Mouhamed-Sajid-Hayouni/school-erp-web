@@ -5,7 +5,7 @@
 The School ERP System is a multi-interface platform for managing a Tunisian public school across:
 
 - a web administration dashboard
-- a mobile student/parent portal
+- a mobile parent portal
 - a shared backend API
 - a PostgreSQL relational database
 

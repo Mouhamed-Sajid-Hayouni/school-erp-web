@@ -13,9 +13,9 @@
 10. Open Grades
 11. Save grades
 
-## Student Flow
+## Parent Flow
 1. Logout
-2. Login as student
+2. Login as parent
 3. Show timetable
 4. Show grades
 5. Show absences
@@ -30,8 +30,8 @@
 
 ## Mobile Flow
 1. Open Android APK
-2. Login as student
-3. Show student portal
+2. Login as parent
+3. Show parent portal
 4. Logout
 5. Login as parent
 6. Show parent portal

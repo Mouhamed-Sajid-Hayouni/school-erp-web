@@ -129,6 +129,6 @@ After web frontend changes:
 
 After mobile changes:
 - APK still builds
-- student login still works
+- student direct login is blocked
 - parent login still works
 - parent portal does not crash
