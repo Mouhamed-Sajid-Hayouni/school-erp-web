@@ -112,15 +112,15 @@ function translateError(message: string) {
   const normalized = message.toLowerCase();
 
   if (normalized.includes("student data")) {
-    return "بيانات التلميذ غير متوفرة لتصدير بطاقة الأعداد.";
+    return "بيانات الابن غير متوفرة لاستخراج دفتر الأعداد.";
   }
 
   if (normalized.includes("bulletin")) {
-    return "بيانات بطاقة الأعداد غير مكتملة.";
+    return "بيانات دفتر الأعداد غير مكتملة.";
   }
 
   if (normalized.includes("export")) {
-    return "تعذر تصدير بطاقة الأعداد بصيغة PDF.";
+    return "تعذر استخراج دفتر الأعداد بصيغة PDF.";
   }
 
   if (normalized.includes("portal")) {
@@ -490,19 +490,19 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
         (parentData.children ?? []).find((child) => child.id === studentId) ?? null;
 
       if (!targetStudent) {
-        throw new Error("Student data not available for bulletin export.");
+        throw new Error("بيانات الابن غير متوفرة لاستخراج دفتر الأعداد.");
       }
 
       const bulletin = buildStudentBulletinFromPortal(targetStudent, period);
 
       if (!bulletin) {
-        throw new Error("Bulletin data is incomplete.");
+        throw new Error("بيانات دفتر الأعداد غير مكتملة.");
       }
 
       await exportBulletinPdf(bulletin);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "تعذر تصدير بطاقة الأعداد بصيغة PDF.";
+        err instanceof Error ? err.message : "تعذر استخراج دفتر الأعداد بصيغة PDF.";
       setSummaryError(translateError(message));
     }
   };
@@ -600,13 +600,13 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
                         : "cursor-not-allowed bg-slate-300"
                     }`}
                   >
-                    تصدير بطاقة الأعداد PDF
+                   استخراج دفتر الأعداد PDF
                   </button>
                 </div>
 
                 {!targetStudentId ? (
                   <p className="mt-3 text-xs text-amber-600">
-                    لم يتم تحديد معرّف التلميذ بعد لتصدير PDF.
+                   لم يتم تحديد معرّف الابن بعد لاستخراج PDF.
                   </p>
                 ) : null}
               </div>
