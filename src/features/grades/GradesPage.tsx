@@ -137,7 +137,7 @@ function translateError(message: string) {
   }
 
   if (normalized.includes("bulletin")) {
-    return "تعذر إرسال إشعار بطاقة الأعداد.";
+    return "تعذر إرسال إشعار دفتر الأعداد.";
   }
 
   if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
@@ -479,12 +479,12 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
 
       await notifyBulletin(apiBaseUrl, token, studentId, period);
 
-      const message = "تم إرسال إشعار بطاقة الأعداد بنجاح.";
+      const message = "تم إرسال إشعار دفتر الأعداد بنجاح.";
       setSuccessMessage(message);
       showToast(message, "success");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "تعذر إرسال إشعار بطاقة الأعداد.";
+        err instanceof Error ? err.message : "تعذر إرسال إشعار دفتر الأعداد.";
       const translated = translateError(message);
       setError(translated);
       setSuccessMessage("");
@@ -779,7 +779,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
                       >
                         {notifyingStudentId === row.studentId
                           ? "جارٍ الإرسال..."
-                          : "إشعار بطاقة الأعداد"}
+                          : "إشعار دفتر الأعداد"}
                       </button>
                     </td>
                   </tr>
