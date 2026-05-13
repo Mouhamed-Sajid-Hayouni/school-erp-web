@@ -67,7 +67,7 @@ type ParentPortalResponse = {
   children?: StudentPortalShape[];
 };
 
-type PortalResponse = StudentPortalShape | ParentPortalResponse;
+type PortalResponse = ParentPortalResponse;
 
 type MyPortalPageProps = {
   apiBaseUrl: string;
@@ -80,7 +80,7 @@ const PERIOD_OPTIONS: { value: GradePeriod; label: string }[] = [
   { value: "TRIMESTER_3", label: "الثلاثي الثالث" },
 ];
 
-function isParentPortalResponse(data: PortalResponse | null): data is ParentPortalResponse {
+function isParentPortalResponse(data: unknown): data is ParentPortalResponse {
   return !!data && Array.isArray((data as ParentPortalResponse).children);
 }
 
@@ -124,7 +124,7 @@ function translateError(message: string) {
   }
 
   if (normalized.includes("portal")) {
-    return "تعذر تحميل فضاء المستخدم.";
+    return "تعذر تحميل فضاء الولي.";
   }
 
   if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
@@ -444,7 +444,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
         setData(json);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "تعذر تحميل فضاء المستخدم.";
+        const message = err instanceof Error ? err.message : "تعذر تحميل فضاء الولي.";
         setPortalError(translateError(message));
       } finally {
         setLoading(false);
@@ -456,10 +456,6 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
   const isParentResponse = isParentPortalResponse(data);
 
-  const studentSummary = useMemo(() => {
-    if (!data || isParentResponse) return null;
-    return buildStudentBulletinFromPortal(data as StudentPortalShape, period);
-  }, [data, isParentResponse, period]);
 
   const childSummaries = useMemo(() => {
     if (!data || !isParentResponse) return {};
@@ -489,14 +485,9 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
       let targetStudent: StudentPortalShape | null = null;
 
-      if (isParentResponse) {
-        const parentData = data as ParentPortalResponse;
-        targetStudent =
-          (parentData.children ?? []).find((child) => child.id === studentId) ?? null;
-      } else {
-        const studentData = data as StudentPortalShape;
-        targetStudent = studentData.id === studentId ? studentData : null;
-      }
+      const parentData = data as ParentPortalResponse;
+      targetStudent =
+        (parentData.children ?? []).find((child) => child.id === studentId) ?? null;
 
       if (!targetStudent) {
         throw new Error("Student data not available for bulletin export.");
@@ -517,7 +508,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   };
 
   if (loading) {
-    return <LoadingState message="جارٍ تحميل الفضاء..." />;
+    return <LoadingState message="جارٍ تحميل فضاء الولي..." />;
   }
 
   if (portalError) {
@@ -525,18 +516,23 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   }
 
   if (!data) {
-    return <EmptyState message="لا توجد بيانات للفضاء." />;
+    return <EmptyState message="لا توجد بيانات لفضاء الولي." />;
   }
 
-  if (isParentResponse) {
-    const parentData = data as ParentPortalResponse;
-    const children = parentData.children ?? [];
-
-    if (children.length === 0) {
-      return <EmptyState message="لا يوجد أبناء مرتبطون بحساب هذا الولي." />;
-    }
-
+  if (!isParentResponse) {
     return (
+      <ErrorState message="هذا الفضاء مخصص للأولياء فقط. الرجاء استعمال حساب الولي." />
+    );
+  }
+
+  const parentData = data as ParentPortalResponse;
+  const children = parentData.children ?? [];
+
+  if (children.length === 0) {
+    return <EmptyState message="لا يوجد أبناء مرتبطون بحساب هذا الولي." />;
+  }
+
+  return (
       <div className="space-y-6 text-right" dir="rtl">
         <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -636,72 +632,3 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
       </div>
     );
   }
-
-  const studentData = data as StudentPortalShape;
-  const schedule = studentData.class?.schedules ?? [];
-  const grades = studentData.grades ?? [];
-  const attendances = studentData.attendances ?? [];
-
-  return (
-    <div className="space-y-6 text-right" dir="rtl">
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">فضائي</h2>
-          <p className="text-sm text-slate-500">
-            ملخصك الأكاديمي الموزون وجدول أوقاتك وأعدادك وغياباتك.
-          </p>
-        </div>
-
-        <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-end">
-          <div className="w-full md:w-56">
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              الثلاثي
-            </label>
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value as GradePeriod)}
-              className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
-            >
-              {PERIOD_OPTIONS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {studentData.id ? (
-            <button
-              onClick={() => handleExportBulletin(studentData.id!)}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-            >
-              تصدير بطاقة الأعداد PDF
-            </button>
-          ) : null}
-        </div>
-      </header>
-
-      {summaryError ? (
-        <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          {summaryError}
-        </div>
-      ) : null}
-
-      <SummaryCards summary={studentSummary} attendances={attendances} />
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <SubjectAverageSection summary={studentSummary} loading={false} />
-        <TimetableSection schedule={schedule} />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <GradesSection grades={grades} period={period} />
-        <AttendanceSection attendances={attendances} title="الغيابات" />
-      </div>
-
-      <AssignmentsSection apiBaseUrl={apiBaseUrl} token={token} />
-      <AnnouncementsSection apiBaseUrl={apiBaseUrl} token={token} />
-      <NotificationsSection apiBaseUrl={apiBaseUrl} token={token} />
-    </div>
-  );
-}
