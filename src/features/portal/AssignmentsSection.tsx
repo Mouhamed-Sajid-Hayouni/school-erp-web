@@ -66,14 +66,44 @@ async function apiRequest<T>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.error || "Request failed");
+    throw new Error((data as { error?: string }).error || "تعذر تنفيذ الطلب.");
   }
 
   return data as T;
 }
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("ar-TN");
+}
+
+function translateStatus(status: string) {
+  if (status === "DONE") return "مُنجز";
+  if (status === "PENDING") return "في الانتظار";
+  if (status === "SUBMITTED") return "تم التسليم";
+
+  return status;
+}
+
+function translateError(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("load") || normalized.includes("assignments")) {
+    return "تعذر تحميل الواجبات.";
+  }
+
+  if (normalized.includes("update")) {
+    return "تعذر تحديث الواجب.";
+  }
+
+  if (normalized.includes("request")) {
+    return "تعذر تنفيذ الطلب.";
+  }
+
+  if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
+    return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
+  }
+
+  return message || "حدث خطأ غير متوقع.";
 }
 
 function isOverdue(submission: Submission) {
@@ -91,7 +121,7 @@ function StatCard({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 text-right shadow-sm" dir="rtl">
       <p className="text-sm text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
     </div>
@@ -111,8 +141,12 @@ function SubmissionCard({
 }) {
   const overdue = isOverdue(submission);
 
+  const teacherName = `${submission.assignment.teacher?.user?.firstName || ""} ${
+    submission.assignment.teacher?.user?.lastName || ""
+  }`.trim();
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 text-right shadow-sm" dir="rtl">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -127,44 +161,43 @@ function SubmissionCard({
                   : "bg-amber-100 text-amber-700"
               }`}
             >
-              {submission.status}
+              {translateStatus(submission.status)}
             </span>
 
             {overdue ? (
               <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
-                Overdue
+                متأخر
               </span>
             ) : null}
           </div>
 
           <p className="text-sm text-slate-600">
-            {submission.assignment.description || "No description"}
+            {submission.assignment.description || "لا يوجد وصف."}
           </p>
 
           <div className="grid gap-2 text-sm text-slate-500 sm:grid-cols-2">
             <p>
-              <span className="font-medium text-slate-700">Subject:</span>{" "}
+              <span className="font-medium text-slate-700">المادة:</span>{" "}
               {submission.assignment.subject?.name || "-"}
             </p>
             <p>
-              <span className="font-medium text-slate-700">Class:</span>{" "}
+              <span className="font-medium text-slate-700">القسم:</span>{" "}
               {submission.assignment.class?.name || "-"}
             </p>
             <p>
-              <span className="font-medium text-slate-700">Teacher:</span>{" "}
-              {submission.assignment.teacher?.user?.firstName || ""}{" "}
-              {submission.assignment.teacher?.user?.lastName || ""}
+              <span className="font-medium text-slate-700">المعلّم:</span>{" "}
+              {teacherName || "-"}
             </p>
             <p>
-              <span className="font-medium text-slate-700">Due:</span>{" "}
+              <span className="font-medium text-slate-700">الأجل:</span>{" "}
               {formatDateTime(submission.assignment.dueDate)}
             </p>
             <p>
-              <span className="font-medium text-slate-700">Submitted at:</span>{" "}
+              <span className="font-medium text-slate-700">تاريخ التسليم:</span>{" "}
               {submission.submittedAt ? formatDateTime(submission.submittedAt) : "-"}
             </p>
             <p>
-              <span className="font-medium text-slate-700">Notes:</span>{" "}
+              <span className="font-medium text-slate-700">الملاحظات:</span>{" "}
               {submission.notes || "-"}
             </p>
           </div>
@@ -176,7 +209,7 @@ function SubmissionCard({
             disabled={savingId === submission.id}
             className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
-            {savingId === submission.id ? "Saving..." : "Mark as done"}
+            {savingId === submission.id ? "جارٍ الحفظ..." : "تحديده كمُنجز"}
           </button>
         ) : null}
       </div>
@@ -204,10 +237,10 @@ export default function AssignmentsSection({
     );
 
     if (role === "PARENT") {
-      setParentChildren(data as ParentChildAssignments[]);
+      setParentChildren(Array.isArray(data) ? (data as ParentChildAssignments[]) : []);
       setStudentAssignments([]);
     } else {
-      setStudentAssignments(data as Submission[]);
+      setStudentAssignments(Array.isArray(data) ? (data as Submission[]) : []);
       setParentChildren([]);
     }
   };
@@ -219,7 +252,9 @@ export default function AssignmentsSection({
         setError("");
         await refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load assignments");
+        const message =
+          err instanceof Error ? err.message : "تعذر تحميل الواجبات.";
+        setError(translateError(message));
       } finally {
         setLoading(false);
       }
@@ -254,25 +289,27 @@ export default function AssignmentsSection({
         method: "PUT",
         body: JSON.stringify({
           status: "DONE",
-          notes: "Marked as done from portal",
+          notes: "تم تحديد الواجب كمُنجز من الفضاء",
         }),
       });
 
-      setMessage("Assignment updated successfully.");
+      setMessage("تم تحديث الواجب بنجاح.");
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update assignment");
+      const message =
+        err instanceof Error ? err.message : "تعذر تحديث الواجب.";
+      setError(translateError(message));
     } finally {
       setSavingId(null);
     }
   };
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 text-right" dir="rtl">
       <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <h3 className="text-2xl font-bold text-slate-900">Assignments</h3>
+        <h3 className="text-2xl font-bold text-slate-900">الواجبات</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Track homework, due dates, and completion status.
+          متابعة الواجبات والآجال وحالة الإنجاز.
         </p>
       </div>
 
@@ -289,20 +326,22 @@ export default function AssignmentsSection({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total assignments" value={stats.total} />
-        <StatCard label="Pending" value={stats.pending} />
-        <StatCard label="Done" value={stats.done} />
-        <StatCard label="Overdue" value={stats.overdue} />
+        <StatCard label="مجموع الواجبات" value={stats.total} />
+        <StatCard label="في الانتظار" value={stats.pending} />
+        <StatCard label="مُنجزة" value={stats.done} />
+        <StatCard label="متأخرة" value={stats.overdue} />
       </div>
 
       {loading ? (
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Loading assignments...</p>
+          <p className="text-sm text-slate-500">جارٍ تحميل الواجبات...</p>
         </div>
       ) : role === "PARENT" ? (
         parentChildren.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-slate-500">No child assignments found.</p>
+            <p className="text-sm text-slate-500">
+              لا توجد واجبات لأبناء هذا الولي.
+            </p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -313,13 +352,15 @@ export default function AssignmentsSection({
                     {child.user?.firstName} {child.user?.lastName}
                   </h4>
                   <p className="mt-1 text-sm text-slate-500">
-                    {child.submissions.length} assignment(s)
+                    {child.submissions.length} واجب
                   </p>
                 </div>
 
                 {child.submissions.length === 0 ? (
                   <div className="rounded-2xl bg-white p-6 shadow-sm">
-                    <p className="text-sm text-slate-500">No assignments for this child.</p>
+                    <p className="text-sm text-slate-500">
+                      لا توجد واجبات لهذا التلميذ.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -340,7 +381,7 @@ export default function AssignmentsSection({
         )
       ) : studentAssignments.length === 0 ? (
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">No assignments found.</p>
+          <p className="text-sm text-slate-500">لا توجد واجبات.</p>
         </div>
       ) : (
         <div className="space-y-4">
