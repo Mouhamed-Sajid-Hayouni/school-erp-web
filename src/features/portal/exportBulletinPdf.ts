@@ -1,3 +1,4 @@
+import { getVisibleStudentEmail } from "../../utils/studentEmail";
 export type GradePeriod = "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
 
 export type StudentBulletinResponse = {
@@ -44,6 +45,7 @@ function escapeHtml(value: string) {
 
 export async function exportBulletinPdf(data: StudentBulletinResponse) {
   const fullName = `${data.student.firstName} ${data.student.lastName}`.trim();
+  const visibleStudentEmail = getVisibleStudentEmail(data.student.email);
   const periodLabel = periodLabelMap[data.period] ?? data.period;
 
   const rowsHtml = data.subjects
@@ -175,7 +177,7 @@ export async function exportBulletinPdf(data: StudentBulletinResponse) {
 
           <div class="meta">
             <div><span class="label">التلميذ:</span> ${escapeHtml(fullName)}</div>
-            <div><span class="label">البريد الإلكتروني:</span> ${escapeHtml(data.student.email)}</div>
+            <div><span class="label">البريد الإلكتروني:</span> ${escapeHtml(visibleStudentEmail)}</div>
             <div><span class="label">القسم:</span> ${escapeHtml(data.class?.name ?? "-")}</div>
             <div><span class="label">السنة الدراسية:</span> ${escapeHtml(data.class?.academicYear ?? "-")}</div>
             <div><span class="label">الفترة:</span> ${escapeHtml(periodLabel)}</div>

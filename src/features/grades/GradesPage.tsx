@@ -4,6 +4,7 @@ import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
 import { useToast } from "../../components/common/ToastProvider";
+import { getVisibleStudentEmail } from "../../utils/studentEmail";
 
 type ClassOption = {
   id: string;
@@ -503,7 +504,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
       return {
         studentId: student.id,
         fullName,
-        email: student.user?.email ?? "",
+        email: getVisibleStudentEmail(student.user?.email),
         score: gradeMap[student.id]?.score ?? "",
         comments: gradeMap[student.id]?.comments ?? "",
       };

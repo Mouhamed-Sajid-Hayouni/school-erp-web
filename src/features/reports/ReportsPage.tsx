@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import { getVisibleStudentEmail } from "../../utils/studentEmail";
 
 type ClassItem = {
   id: string;
@@ -435,7 +436,7 @@ export default function ReportsPage() {
         (row) => `
           <tr>
             <td>${escapeHtml(row.studentName)}</td>
-            <td class="ltr">${escapeHtml(row.email)}</td>
+            <td class="ltr">${escapeHtml(getVisibleStudentEmail(row.email))}</td>
             <td>${row.present}</td>
             <td>${row.absent}</td>
             <td>${row.late}</td>
@@ -650,7 +651,7 @@ export default function ReportsPage() {
       ["التلميذ", "البريد الإلكتروني", "حاضر", "غائب", "متأخر", "المجموع", "نسبة الغياب"],
       ...report.rows.map((row) => [
         row.studentName,
-        row.email,
+        getVisibleStudentEmail(row.email),
         row.present,
         row.absent,
         row.late,
@@ -696,7 +697,7 @@ export default function ReportsPage() {
         (row) => `
           <tr>
             <td>${escapeHtml(row.studentName)}</td>
-            <td class="ltr">${escapeHtml(row.email)}</td>
+            <td class="ltr">${escapeHtml(getVisibleStudentEmail(row.email))}</td>
             <td>${row.gradesCount}</td>
             <td>${row.average !== null ? row.average.toFixed(2) : "-"}</td>
             <td>${row.bestScore !== null ? row.bestScore : "-"}</td>
@@ -919,7 +920,7 @@ export default function ReportsPage() {
       ],
       ...gradesReport.rows.map((row) => [
         row.studentName,
-        row.email,
+        getVisibleStudentEmail(row.email),
         row.gradesCount,
         row.average !== null ? Number(row.average.toFixed(2)) : "",
         row.bestScore ?? "",
@@ -1094,7 +1095,7 @@ export default function ReportsPage() {
 
             <div class="card">
               <div class="card-label">البريد الإلكتروني</div>
-              <div class="card-value ltr">${escapeHtml(studentReport.student.email)}</div>
+              <div class="card-value ltr">${escapeHtml(getVisibleStudentEmail(studentReport.student.email))}</div>
             </div>
 
             <div class="card">
@@ -1188,7 +1189,7 @@ export default function ReportsPage() {
 
     const rows = [
       ["التلميذ", studentName],
-      ["البريد الإلكتروني", studentReport.student.email],
+      ["\u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a", getVisibleStudentEmail(studentReport.student.email)],
       ["القسم", studentReport.class?.name ?? ""],
       ["السنة الدراسية", studentReport.class?.academicYear ?? ""],
       ["الثلاثي", formatPeriodLabel(studentReport.period)],
@@ -1428,7 +1429,7 @@ export default function ReportsPage() {
                             {row.studentName}
                           </td>
                           <td className="px-5 py-3 text-left text-slate-500" dir="ltr">
-                            {row.email}
+                            {getVisibleStudentEmail(row.email) || "-"}
                           </td>
                           <td className="px-5 py-3">{row.present}</td>
                           <td className="px-5 py-3">{row.absent}</td>
@@ -1637,7 +1638,7 @@ export default function ReportsPage() {
                             {row.studentName}
                           </td>
                           <td className="px-5 py-3 text-left text-slate-500" dir="ltr">
-                            {row.email}
+                            {getVisibleStudentEmail(row.email) || "-"}
                           </td>
                           <td className="px-5 py-3">{row.gradesCount}</td>
                           <td className="px-5 py-3">

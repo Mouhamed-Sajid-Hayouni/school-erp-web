@@ -4,6 +4,7 @@ import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
 import { useToast } from "../../components/common/ToastProvider";
+import { getVisibleStudentEmail } from "../../utils/studentEmail";
 
 type StudentRow = {
   id: string;
@@ -273,7 +274,7 @@ export default function AttendancePage({
       fullName:
         `${student.user?.firstName ?? ""} ${student.user?.lastName ?? ""}`.trim() ||
         "تلميذ غير معروف",
-      email: student.user?.email ?? "",
+      email: getVisibleStudentEmail(student.user?.email),
       status: statuses[student.id] ?? "PRESENT",
     }));
   }, [classStudents, statuses]);

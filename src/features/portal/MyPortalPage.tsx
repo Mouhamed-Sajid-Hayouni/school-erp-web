@@ -11,6 +11,7 @@ import {
 import AssignmentsSection from "./AssignmentsSection";
 import AnnouncementsSection from "./AnnouncementsSection";
 import NotificationsSection from "./NotificationsSection";
+import { getVisibleStudentEmail } from "../../utils/studentEmail";
 
 type PortalSchedule = {
   id: string;
@@ -221,7 +222,7 @@ function buildStudentBulletinFromPortal(
       id: student.id,
       firstName: student.user.firstName ?? "",
       lastName: student.user.lastName ?? "",
-      email: student.user.email ?? "",
+      email: getVisibleStudentEmail(student.user.email),
     },
     class: student.class
       ? {
