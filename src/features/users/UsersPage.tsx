@@ -244,7 +244,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     setCreateForm((prev) => ({
       ...prev,
       [field]: value,
-      ...(field === "role" && value === "STUDENT" ? { password: "" } : {}),
+      ...(field === "role" && value === "STUDENT" ? { email: "", password: "" } : {}),
       ...(field === "role" && value !== "STUDENT" ? { classId: "" } : {}),
       ...(field === "role" && value !== "PARENT" ? { studentUserId: "" } : {}),
     }));
@@ -261,7 +261,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     if (
       !createForm.firstName.trim() ||
       !createForm.lastName.trim() ||
-      !createForm.email.trim() ||
+      (createForm.role !== "STUDENT" && !createForm.email.trim()) ||
       (createForm.role !== "STUDENT" && !createForm.password.trim())
     ) {
       setError(
@@ -298,7 +298,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
         `${apiBaseUrl}/api/register`,
         token,
         {
-          email: createForm.email.trim(),
+          email: createForm.role === "STUDENT" ? "" : createForm.email.trim(),
           password: createForm.role === "STUDENT" ? "" : createForm.password.trim(),
           firstName: createForm.firstName.trim(),
           lastName: createForm.lastName.trim(),
@@ -513,6 +513,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
               />
             </div>
 
+            {createForm.role !== "STUDENT" ? (
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">
                 البريد الإلكتروني
@@ -525,6 +526,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                 className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
               />
             </div>
+            ) : null}
 
             {createForm.role !== "STUDENT" ? (
               <div className="space-y-2">
@@ -599,7 +601,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                   <option value="">اختر تلميذًا</option>
                   {studentUsers.map((student) => (
                     <option key={student.id} value={student.id}>
-                      {student.firstName} {student.lastName} — {student.email}
+                      {student.firstName} {student.lastName}
                     </option>
                   ))}
                 </select>
@@ -752,7 +754,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                     </td>
 
                     <td className="px-3 py-3 text-left text-sm text-slate-600" dir="ltr">
-                      {user.email}
+                      {user.role === "STUDENT" ? "\u0628\u062f\u0648\u0646 \u0628\u0631\u064a\u062f \u062f\u062e\u0648\u0644" : user.email}
                     </td>
 
                     <td className="px-3 py-3">
