@@ -7,14 +7,8 @@ export function isInternalStudentEmail(email?: string | null) {
   );
 }
 
-export function getVisibleStudentEmail(email?: string | null) {
-  const value = String(email ?? "").trim();
-
-  if (!value || isInternalStudentEmail(value)) {
-    return "";
-  }
-
-  return value;
+export function getVisibleStudentEmail(_email?: string | null) {
+  return "";
 }
 
 export function getStudentEmailDisplay(email?: string | null) {
