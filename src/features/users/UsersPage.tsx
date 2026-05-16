@@ -325,7 +325,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     setEditForm({
       firstName: user.firstName,
       lastName: user.lastName,
-      email: user.email,
+      email: user.role === "STUDENT" ? "" : user.email,
       password: "",
     });
     setShowCreateForm(false);
@@ -342,9 +342,13 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     if (
       !editForm.firstName.trim() ||
       !editForm.lastName.trim() ||
-      !editForm.email.trim()
+      (!isEditingStudent && !editForm.email.trim())
     ) {
-      setError("الاسم واللقب والبريد الإلكتروني مطلوبة.");
+      setError(
+        isEditingStudent
+          ? "\u0627\u0644\u0627\u0633\u0645 \u0648\u0627\u0644\u0644\u0642\u0628 \u0645\u0637\u0644\u0648\u0628\u0627\u0646."
+          : "\u0627\u0644\u0627\u0633\u0645 \u0648\u0627\u0644\u0644\u0642\u0628 \u0648\u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0645\u0637\u0644\u0648\u0628\u0629."
+      );
       return;
     }
 
@@ -363,10 +367,10 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       >(`${apiBaseUrl}/api/users/${editingUserId}`, token, {
         firstName: editForm.firstName.trim(),
         lastName: editForm.lastName.trim(),
-        email: editForm.email.trim(),
+        email: isEditingStudent ? "" : editForm.email.trim(),
       });
 
-      if (trimmedPassword) {
+      if (!isEditingStudent && trimmedPassword) {
         await apiPut<{ message: string }, { password: string }>(
           `${apiBaseUrl}/api/users/${editingUserId}/password`,
           token,
@@ -462,6 +466,12 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       setDeletingId(null);
     }
   };
+
+  const editingUser = editingUserId
+    ? users.find((user) => user.id === editingUserId)
+    : null;
+  const isEditingStudent = editingUser?.role === "STUDENT";
+
 
   return (
     <div className="space-y-6 text-right" dir="rtl">
@@ -654,6 +664,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
               />
             </div>
 
+            {!isEditingStudent ? (
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">
                 البريد الإلكتروني
@@ -666,7 +677,9 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                 className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
               />
             </div>
+            ) : null}
 
+            {!isEditingStudent ? (
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">
                 كلمة مرور جديدة
@@ -683,6 +696,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                 اختيارية. الحد الأدنى 10 أحرف.
               </p>
             </div>
+            ) : null}
 
             <div className="flex gap-3 md:col-span-2 xl:col-span-3">
               <button
