@@ -472,6 +472,8 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     : null;
   const isEditingStudent = editingUser?.role === "STUDENT";
   const canAdminEditUsers = false;
+  const canAdminCreateUsers = false;
+  const canAdminUploadUserImages = false;
 
 
   return (
@@ -483,23 +485,11 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
             إدارة حسابات المنصة والأدوار وصور المستخدمين.
           </p>
         </div>
-
-        <button
-          onClick={() => {
-            setShowCreateForm((prev) => !prev);
-            setEditingUserId(null);
-            setEditForm(INITIAL_EDIT_FORM);
-            setError("");
-          }}
-          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          {showCreateForm ? "إغلاق" : "إضافة مستخدم"}
-        </button>
       </header>
 
       {error ? <ErrorState message={error} /> : null}
 
-      {showCreateForm ? (
+      {canAdminCreateUsers && showCreateForm ? (
         <section className="rounded-2xl bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-semibold">إنشاء مستخدم</h3>
 
@@ -784,28 +774,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
 
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <label
-                          className={`cursor-pointer rounded-lg border px-3 py-1 text-sm hover:bg-slate-50 ${
-                            uploadingImageId === user.id
-                              ? "pointer-events-none opacity-50"
-                              : ""
-                          }`}
-                        >
-                          {uploadingImageId === user.id
-                            ? "جارٍ الرفع..."
-                            : "رفع صورة"}
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            className="hidden"
-                            disabled={uploadingImageId === user.id}
-                            onChange={(event) => {
-                              const file = event.target.files?.[0] ?? null;
-                              handleProfileImageUpload(user.id, file);
-                              event.currentTarget.value = "";
-                            }}
-                          />
-                        </label>
+                        
                       </div>
                     </td>
                   </tr>
