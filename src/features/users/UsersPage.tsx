@@ -471,6 +471,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     ? users.find((user) => user.id === editingUserId)
     : null;
   const isEditingStudent = editingUser?.role === "STUDENT";
+  const canAdminEditUsers = false;
 
 
   return (
@@ -639,7 +640,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
         </section>
       ) : null}
 
-      {editingUserId ? (
+      {canAdminEditUsers && editingUserId ? (
         <section className="rounded-2xl bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-semibold">تعديل المستخدم</h3>
 
@@ -805,21 +806,6 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                             }}
                           />
                         </label>
-
-                        <button
-                          onClick={() => startEdit(user)}
-                          className="rounded-lg border px-3 py-1 text-sm hover:bg-slate-50"
-                        >
-                          تعديل
-                        </button>
-
-                        <button
-                          onClick={() => handleDelete(user.id)}
-                          disabled={deletingId === user.id}
-                          className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
-                        >
-                          {deletingId === user.id ? "جارٍ الحذف..." : "حذف"}
-                        </button>
                       </div>
                     </td>
                   </tr>
