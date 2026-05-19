@@ -79,12 +79,7 @@ const adminTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
     key: "schedules",
     label: "جداول الأوقات",
     icon: <CalendarDays className="h-4 w-4" />,
-  },
-  {
-    key: "grades",
-    label: "الأعداد",
-    icon: <GraduationCap className="h-4 w-4" />,
-  },
+  },
   {
     key: "assignments",
     label: "الواجبات",

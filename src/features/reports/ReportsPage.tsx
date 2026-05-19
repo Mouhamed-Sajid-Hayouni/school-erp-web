@@ -17,35 +17,6 @@ type SubjectItem = {
   coefficient: number;
 };
 
-type AttendanceReportRow = {
-  studentId: string;
-  studentName: string;
-  email: string;
-  present: number;
-  absent: number;
-  late: number;
-  total: number;
-  absenceRate: number;
-};
-
-type AttendanceReportResponse = {
-  class: {
-    id: string;
-    name: string;
-    academicYear: string;
-  };
-  from: string;
-  to: string;
-  rows: AttendanceReportRow[];
-  summary: {
-    students: number;
-    totalPresent: number;
-    totalAbsent: number;
-    totalLate: number;
-    totalRecords: number;
-  };
-};
-
 type GradePeriod = "TRIMESTER_1" | "TRIMESTER_2" | "TRIMESTER_3";
 
 type GradesReportRow = {
@@ -113,7 +84,7 @@ type StudentReportResponse = {
   subjects: StudentReportSubject[];
 };
 
-type ReportTab = "attendance" | "grades" | "student";
+type ReportTab = "grades" | "student";
 
 type SchoolSettings = {
   id: string;
@@ -160,16 +131,7 @@ export default function ReportsPage() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
 
-  const [reportTab, setReportTab] = useState<ReportTab>("attendance");
-
-  const [classId, setClassId] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [report, setReport] = useState<AttendanceReportResponse | null>(null);
-  const [loadingClasses, setLoadingClasses] = useState(false);
-  const [loadingReport, setLoadingReport] = useState(false);
-
-  const [gradeClassId, setGradeClassId] = useState("");
+  const [reportTab, setReportTab] = useState<ReportTab>("grades");const [loadingClasses, setLoadingClasses] = useState(false);const [gradeClassId, setGradeClassId] = useState("");
   const [gradeSubjectId, setGradeSubjectId] = useState("");
   const [gradePeriod, setGradePeriod] = useState<GradePeriod>("TRIMESTER_1");
   const [gradesReport, setGradesReport] =
@@ -210,9 +172,7 @@ export default function ReportsPage() {
         const data: SchoolSettings = await res.json();
 
         setGradePeriod(data.defaultTrimester || "TRIMESTER_1");
-        setStudentPeriod(data.defaultTrimester || "TRIMESTER_1");
-        setFrom(toDateInputValue(data.defaultReportFrom));
-        setTo(toDateInputValue(data.defaultReportTo));
+        setStudentPeriod(data.defaultTrimester || "TRIMESTER_1");setTo(toDateInputValue(data.defaultReportTo));
       } catch {
         // Keep empty dates and TRIMESTER_1 fallback if settings cannot load.
       }
@@ -314,44 +274,6 @@ export default function ReportsPage() {
     loadStudentsForClass();
   }, [studentClassId, token]);
 
-  async function generateReport() {
-    if (!classId || !from || !to) {
-      setError("يرجى اختيار القسم والفترة الزمنية.");
-      return;
-    }
-
-    setLoadingReport(true);
-    setError("");
-
-    try {
-      const params = new URLSearchParams({
-        classId,
-        from,
-        to,
-      });
-
-      const res = await fetch(
-        `${API_BASE_URL}/api/reports/attendance?${params}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!res.ok) {
-        throw new Error("تعذر إنشاء تقرير الحضور والغياب.");
-      }
-
-      const data = await res.json();
-      setReport(data);
-    } catch {
-      setError("تعذر إنشاء تقرير الحضور والغياب.");
-    } finally {
-      setLoadingReport(false);
-    }
-  }
-
   async function generateGradesReport() {
     if (!gradeClassId || !gradePeriod) {
       setError("يرجى اختيار القسم والثلاثي.");
@@ -424,263 +346,6 @@ export default function ReportsPage() {
     } finally {
       setLoadingStudentReport(false);
     }
-  }
-
-  function exportAttendancePdf() {
-    if (!report) return;
-
-    const safeClassName = report.class.name.replace(/[\\/:*?"<>|]/g, "-");
-
-    const rowsHtml = report.rows
-      .map(
-        (row) => `
-          <tr>
-            <td>${escapeHtml(row.studentName)}</td>
-            <td class="ltr">${escapeHtml(getVisibleStudentEmail(row.email))}</td>
-            <td>${row.present}</td>
-            <td>${row.absent}</td>
-            <td>${row.late}</td>
-            <td>${row.total}</td>
-            <td>${row.absenceRate}%</td>
-          </tr>
-        `
-      )
-      .join("");
-
-    const html = `
-      <!doctype html>
-      <html lang="ar" dir="rtl">
-        <head>
-          <meta charset="utf-8" />
-          <title>attendance-report-${escapeHtml(safeClassName)}-${escapeHtml(report.from)}-${escapeHtml(report.to)}</title>
-          <style>
-            * { box-sizing: border-box; }
-
-            body {
-              font-family: Arial, sans-serif;
-              color: #0f172a;
-              margin: 32px;
-              direction: rtl;
-              text-align: right;
-            }
-
-            .header {
-              border-bottom: 2px solid #0f172a;
-              padding-bottom: 16px;
-              margin-bottom: 24px;
-            }
-
-            h1 {
-              margin: 0;
-              font-size: 26px;
-            }
-
-            .subtitle {
-              margin-top: 6px;
-              color: #64748b;
-              font-size: 13px;
-            }
-
-            .meta {
-              display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              gap: 12px;
-              margin-bottom: 24px;
-            }
-
-            .card {
-              border: 1px solid #e2e8f0;
-              border-radius: 12px;
-              padding: 12px;
-              background: #f8fafc;
-            }
-
-            .card-label {
-              color: #64748b;
-              font-size: 11px;
-              text-transform: uppercase;
-              letter-spacing: 0.04em;
-            }
-
-            .card-value {
-              margin-top: 6px;
-              font-size: 18px;
-              font-weight: 700;
-            }
-
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              font-size: 12px;
-            }
-
-            th {
-              background: #f1f5f9;
-              text-align: right;
-              color: #334155;
-            }
-
-            th,
-            td {
-              border: 1px solid #e2e8f0;
-              padding: 8px;
-            }
-
-            .ltr {
-              direction: ltr;
-              text-align: left;
-            }
-
-            .footer {
-              margin-top: 24px;
-              color: #64748b;
-              font-size: 11px;
-            }
-
-            @media print {
-              body { margin: 18mm; }
-              button { display: none; }
-            }
-          </style>
-        </head>
-
-        <body>
-          <div class="header">
-            <h1>تقرير الحضور والغياب</h1>
-            <div class="subtitle">
-              School ERP — ${escapeHtml(report.class.name)} — من ${escapeHtml(report.from)} إلى ${escapeHtml(report.to)}
-            </div>
-          </div>
-
-          <div class="meta">
-            <div class="card">
-              <div class="card-label">القسم</div>
-              <div class="card-value">${escapeHtml(report.class.name)}</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">التلاميذ</div>
-              <div class="card-value">${report.summary.students}</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">الحضور</div>
-              <div class="card-value">${report.summary.totalPresent}</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">الغياب</div>
-              <div class="card-value">${report.summary.totalAbsent}</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">التأخير</div>
-              <div class="card-value">${report.summary.totalLate}</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">إجمالي السجلات</div>
-              <div class="card-value">${report.summary.totalRecords}</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">من</div>
-              <div class="card-value">${escapeHtml(report.from)}</div>
-            </div>
-
-            <div class="card">
-              <div class="card-label">إلى</div>
-              <div class="card-value">${escapeHtml(report.to)}</div>
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>التلميذ</th>
-                <th>البريد الإلكتروني</th>
-                <th>حاضر</th>
-                <th>غائب</th>
-                <th>متأخر</th>
-                <th>المجموع</th>
-                <th>نسبة الغياب</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              ${
-                rowsHtml ||
-                `
-                  <tr>
-                    <td colspan="7">لا يوجد تلاميذ في هذا القسم.</td>
-                  </tr>
-                `
-              }
-            </tbody>
-          </table>
-
-          <div class="footer">
-            تم الإنشاء من School ERP بتاريخ ${escapeHtml(generatedAtLabel())}
-          </div>
-
-          <script>
-            window.onload = function () {
-              window.print();
-            };
-          </script>
-        </body>
-      </html>
-    `;
-
-    const printWindow = window.open("", "_blank", "width=1000,height=800");
-
-    if (!printWindow) {
-      setError("تم منع النافذة المنبثقة. يرجى السماح بالنوافذ المنبثقة لتصدير PDF.");
-      return;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-  }
-
-  function exportAttendanceExcel() {
-    if (!report) return;
-
-    const rows = [
-      ["التلميذ", "البريد الإلكتروني", "حاضر", "غائب", "متأخر", "المجموع", "نسبة الغياب"],
-      ...report.rows.map((row) => [
-        row.studentName,
-        getVisibleStudentEmail(row.email),
-        row.present,
-        row.absent,
-        row.late,
-        row.total,
-        `${row.absenceRate}%`,
-      ]),
-    ];
-
-    const worksheet = XLSX.utils.aoa_to_sheet(rows);
-
-    worksheet["!cols"] = [
-      { wch: 28 },
-      { wch: 28 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 14 },
-    ];
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "الحضور والغياب");
-
-    const safeClassName = report.class.name.replace(/[\\/:*?"<>|]/g, "-");
-
-    XLSX.writeFile(
-      workbook,
-      `attendance-report-${safeClassName}-${report.from}-${report.to}.xlsx`
-    );
   }
 
   function exportGradesPdf() {
@@ -1237,7 +902,7 @@ export default function ReportsPage() {
       <div>
         <h1 className="text-3xl font-bold text-slate-900">التقارير</h1>
         <p className="mt-1 text-slate-500">
-          إنشاء تقارير إدارية للحضور والغياب والأعداد والتلاميذ.
+          إنشاء تقارير إدارية للأعداد والتلاميذ.
         </p>
       </div>
 
@@ -1249,16 +914,7 @@ export default function ReportsPage() {
 
       <div className="rounded-2xl border bg-white p-2 shadow-sm">
         <div className="grid gap-2 md:grid-cols-3">
-          <button
-            onClick={() => setReportTab("attendance")}
-            className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
-              reportTab === "attendance"
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            الحضور والغياب
-          </button>
+          
 
           <button
             onClick={() => setReportTab("grades")}
@@ -1283,192 +939,6 @@ export default function ReportsPage() {
           </button>
         </div>
       </div>
-
-      {reportTab === "attendance" && (
-        <>
-          <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">
-                  تقرير الحضور والغياب
-                </h2>
-                <p className="text-sm text-slate-500">
-                  تصفية الحضور والغياب حسب القسم والفترة الزمنية.
-                </p>
-              </div>
-
-              {report && (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={exportAttendancePdf}
-                    className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-                  >
-                    تصدير PDF
-                  </button>
-
-                  <button
-                    onClick={exportAttendanceExcel}
-                    className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    تصدير Excel
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  القسم
-                </label>
-                <select
-                  value={classId}
-                  onChange={(event) => {
-                    setClassId(event.target.value);
-                    setReport(null);
-                  }}
-                  disabled={loadingClasses}
-                  className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-500"
-                >
-                  <option value="">اختر قسمًا</option>
-                  {classes.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                      {item._count ? ` (${item._count.students})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  من
-                </label>
-                <input
-                  type="date"
-                  dir="ltr"
-                  value={from}
-                  onChange={(event) => {
-                    setFrom(event.target.value);
-                    setReport(null);
-                  }}
-                  className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  إلى
-                </label>
-                <input
-                  type="date"
-                  dir="ltr"
-                  value={to}
-                  onChange={(event) => {
-                    setTo(event.target.value);
-                    setReport(null);
-                  }}
-                  className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div className="flex items-end">
-                <button
-                  onClick={generateReport}
-                  disabled={!classId || loadingReport}
-                  className="w-full rounded-xl bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {loadingReport ? "جارٍ الإنشاء..." : "إنشاء التقرير"}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {report && (
-            <>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-                <SummaryCard
-                  title="القسم"
-                  value={selectedClass?.name || report.class.name}
-                />
-                <SummaryCard title="التلاميذ" value={report.summary.students} />
-                <SummaryCard title="الحضور" value={report.summary.totalPresent} />
-                <SummaryCard title="الغياب" value={report.summary.totalAbsent} />
-                <SummaryCard title="التأخير" value={report.summary.totalLate} />
-                <SummaryCard title="إجمالي السجلات" value={report.summary.totalRecords} />
-              </div>
-
-              <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-                <div className="border-b p-5">
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    تفاصيل الحضور والغياب
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    {report.class.name} — من {report.from} إلى {report.to}
-                  </p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right text-sm">
-                    <thead className="bg-slate-50 text-slate-600">
-                      <tr>
-                        <th className="px-5 py-3">التلميذ</th>
-                        <th className="px-5 py-3">البريد الإلكتروني</th>
-                        <th className="px-5 py-3">حاضر</th>
-                        <th className="px-5 py-3">غائب</th>
-                        <th className="px-5 py-3">متأخر</th>
-                        <th className="px-5 py-3">المجموع</th>
-                        <th className="px-5 py-3">نسبة الغياب</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {report.rows.map((row) => (
-                        <tr key={row.studentId} className="border-t">
-                          <td className="px-5 py-3 font-medium text-slate-900">
-                            {row.studentName}
-                          </td>
-                          <td className="px-5 py-3 text-left text-slate-500" dir="ltr">
-                            {getVisibleStudentEmail(row.email) || "-"}
-                          </td>
-                          <td className="px-5 py-3">{row.present}</td>
-                          <td className="px-5 py-3">{row.absent}</td>
-                          <td className="px-5 py-3">{row.late}</td>
-                          <td className="px-5 py-3">{row.total}</td>
-                          <td className="px-5 py-3">
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                row.absenceRate >= 30
-                                  ? "bg-red-100 text-red-700"
-                                  : row.absenceRate >= 15
-                                    ? "bg-yellow-100 text-yellow-700"
-                                    : "bg-green-100 text-green-700"
-                              }`}
-                            >
-                              {row.absenceRate}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-
-                      {report.rows.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={7}
-                            className="px-5 py-8 text-center text-slate-500"
-                          >
-                            لا يوجد تلاميذ في هذا القسم.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </>
-      )}
 
       {reportTab === "grades" && (
         <>
