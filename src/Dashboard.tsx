@@ -163,7 +163,13 @@ useEffect(() => {
         return <SchedulesPage apiBaseUrl={API_BASE_URL} token={token} />;
 
       case "attendance":
-        return <AttendancePage apiBaseUrl={API_BASE_URL} token={token} />;
+        return isTeacher ? (
+          <AttendancePage apiBaseUrl={API_BASE_URL} token={token} />
+        ) : (
+          renderOverview()
+        );
+
+      
 
       case "grades":
         return <GradesPage apiBaseUrl={API_BASE_URL} token={token} />;
