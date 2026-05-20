@@ -98,8 +98,7 @@ type SchoolSettings = {
   updatedAt: string;
 };
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://school-erp-api-3l16.onrender.com";
+import { API_BASE_URL } from "../../lib/config";
 
 const toDateInputValue = (value: string | null) => {
   if (!value) return "";
