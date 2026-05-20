@@ -193,13 +193,8 @@ export default function SchedulesPage({
       setError("");
 
       if (isTeacher) {
-        const [classesJson, subjectsJson] = await Promise.all([
-          apiGet<ClassOption[]>(`${apiBaseUrl}/api/classes`, token),
-          apiGet<SubjectOption[]>(`${apiBaseUrl}/api/subjects`, token),
-        ]);
-
-        setClasses(Array.isArray(classesJson) ? classesJson : []);
-        setSubjects(Array.isArray(subjectsJson) ? subjectsJson : []);
+        setClasses([]);
+        setSubjects([]);
         setTeachers([]);
       } else {
         const [classesJson, subjectsJson, teachersJson] = await Promise.all([
