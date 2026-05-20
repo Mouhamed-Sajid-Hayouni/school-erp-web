@@ -482,12 +482,16 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
         <div>
           <h2 className="text-2xl font-bold">المستخدمون</h2>
           <p className="text-sm text-slate-500">
-            إدارة حسابات المنصة والأدوار وصور المستخدمين.
+            عرض حسابات المنصة والأدوار. تعديل الحسابات معطّل حسب سياسة النظام.
           </p>
         </div>
       </header>
 
       {error ? <ErrorState message={error} /> : null}
+
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        هذه الصفحة للعرض فقط. إنشاء المستخدمين أو تعديلهم أو حذفهم معطّل من الخادم.
+      </div>
 
       {canAdminCreateUsers && showCreateForm ? (
         <section className="rounded-2xl bg-white p-6 shadow-sm">
@@ -736,7 +740,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                   <th className="px-3 py-3 font-medium">البريد الإلكتروني</th>
                   <th className="px-3 py-3 font-medium">الدور</th>
                   <th className="px-3 py-3 font-medium">تاريخ الإنشاء</th>
-                  <th className="px-3 py-3 font-medium">الإجراءات</th>
+                  
                 </tr>
               </thead>
               <tbody>
