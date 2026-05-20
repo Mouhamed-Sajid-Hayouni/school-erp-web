@@ -25,6 +25,6 @@ Render
 ### Required environment variables
 
 ```env
-DATABASE_URL="postgresql://neondb_owner:npg_4Uyb6jqaunRS@ep-orange-shape-alrgercn.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-JWT_SECRET="super_secret_school_key_123"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require"
+JWT_SECRET="CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
 PORT=5000
