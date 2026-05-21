@@ -42,10 +42,10 @@ It supports:
 - Record attendance
 - Record grades
 
-### Student
-- View timetable
-- View grades
-- View absences
+### Student Records
+- Students are school records only
+- No direct student login
+- Follow-up is done through linked parent accounts
 
 ### Parent
 - View linked child
