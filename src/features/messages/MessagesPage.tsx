@@ -56,7 +56,7 @@ type MessagesPageProps = {
 const roleLabels: Record<Role, string> = {
   ADMIN: "مدير النظام",
   TEACHER: "معلّم",
-  STUDENT: "تلميذ",
+  STUDENT: "تلميذ - بدون دخول مباشر",
   PARENT: "ولي",
 };
 
@@ -330,7 +330,7 @@ export default function MessagesPage({
       <div>
         <h1 className="text-3xl font-bold text-slate-900">الرسائل</h1>
         <p className="text-sm text-slate-500">
-          إرسال رسائل خاصة بين المديرين والمعلّمين والتلاميذ والأولياء.
+          إرسال رسائل خاصة بين الإدارة والمعلّمين والأولياء فقط.
         </p>
       </div>
 
@@ -543,3 +543,4 @@ export default function MessagesPage({
     </div>
   );
 }
+
