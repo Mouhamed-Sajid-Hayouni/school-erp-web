@@ -44,6 +44,12 @@ type FormState = {
   classId: string;
 };
 
+type TeacherOverviewResponse = {
+  schedules?: Array<{
+    class?: ClassItem | null;
+  }>;
+};
+
 const emptyForm: FormState = {
   title: "",
   content: "",
@@ -130,9 +136,17 @@ export default function AnnouncementsPage({
 }: AnnouncementsPageProps) {
   const { showToast } = useToast();
 
+  const role =
+    typeof window !== "undefined" ? localStorage.getItem("role") || "" : "";
+  const isTeacher = role === "TEACHER";
+  const defaultForm: FormState = {
+    ...emptyForm,
+    audience: isTeacher ? "CLASS" : "ALL",
+  };
+
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [form, setForm] = useState<FormState>(defaultForm);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -141,10 +155,34 @@ export default function AnnouncementsPage({
   const [error, setError] = useState("");
 
   const fetchData = async () => {
-    const [announcementsData, classesData] = await Promise.all([
-      apiRequest<AnnouncementItem[]>(`${apiBaseUrl}/api/announcements`, token),
-      apiRequest<ClassItem[]>(`${apiBaseUrl}/api/classes`, token),
-    ]);
+    const announcementsData = await apiRequest<AnnouncementItem[]>(
+      `${apiBaseUrl}/api/announcements`,
+      token
+    );
+
+    let classesData: ClassItem[] = [];
+
+    if (isTeacher) {
+      const teacherOverview = await apiRequest<TeacherOverviewResponse>(
+        `${apiBaseUrl}/api/my-teacher-overview`,
+        token
+      );
+
+      const classMap = new Map<string, ClassItem>();
+
+      for (const schedule of teacherOverview.schedules ?? []) {
+        if (schedule.class?.id) {
+          classMap.set(schedule.class.id, schedule.class);
+        }
+      }
+
+      classesData = Array.from(classMap.values());
+    } else {
+      classesData = await apiRequest<ClassItem[]>(
+        `${apiBaseUrl}/api/classes`,
+        token
+      );
+    }
 
     setAnnouncements(Array.isArray(announcementsData) ? announcementsData : []);
     setClasses(Array.isArray(classesData) ? classesData : []);
@@ -168,10 +206,10 @@ export default function AnnouncementsPage({
     };
 
     run();
-  }, [apiBaseUrl, token]);
+  }, [apiBaseUrl, token, isTeacher]);
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm(defaultForm);
     setEditingId(null);
   };
 
@@ -185,15 +223,21 @@ export default function AnnouncementsPage({
         throw new Error("العنوان والمحتوى مطلوبان.");
       }
 
-      if (form.audience === "CLASS" && !form.classId) {
-        throw new Error("القسم مطلوب عند اختيار جمهور قسم محدد.");
+      const audience = isTeacher ? "CLASS" : form.audience;
+
+      if (audience === "CLASS" && !form.classId) {
+        throw new Error("يرجى اختيار القسم.");
+      }
+
+      if (isTeacher && editingId) {
+        throw new Error("المعلّمون لا يمكنهم تعديل الإعلانات من هذه الصفحة.");
       }
 
       const payload = {
         title: form.title.trim(),
         content: form.content.trim(),
-        audience: form.audience,
-        classId: form.audience === "CLASS" ? form.classId : null,
+        audience,
+        classId: audience === "CLASS" ? form.classId : null,
       };
 
       if (editingId) {
@@ -232,6 +276,11 @@ export default function AnnouncementsPage({
   };
 
   const handleEdit = (item: AnnouncementItem) => {
+    if (isTeacher) {
+      setError("المعلّمون لا يمكنهم تعديل الإعلانات من هذه الصفحة.");
+      return;
+    }
+
     setEditingId(item.id);
     setForm({
       title: item.title,
@@ -244,6 +293,11 @@ export default function AnnouncementsPage({
   };
 
   const handleDelete = (id: string) => {
+    if (isTeacher) {
+      setError("المعلّمون لا يمكنهم حذف الإعلانات.");
+      return;
+    }
+
     setPendingDeleteId(id);
   };
 
@@ -357,11 +411,17 @@ export default function AnnouncementsPage({
                 }
                 className="w-full rounded-xl border px-3 py-2"
               >
-                <option value="ALL">الجميع</option>
-                <option value="STUDENTS">التلاميذ</option>
-                <option value="PARENTS">الأولياء</option>
-                <option value="TEACHERS">المعلّمون</option>
-                <option value="CLASS">قسم محدد</option>
+                {isTeacher ? (
+                  <option value="CLASS">قسم محدد</option>
+                ) : (
+                  <>
+                    <option value="ALL">الجميع</option>
+                    <option value="STUDENTS">التلاميذ</option>
+                    <option value="PARENTS">الأولياء</option>
+                    <option value="TEACHERS">المعلّمون</option>
+                    <option value="CLASS">قسم محدد</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -459,20 +519,22 @@ export default function AnnouncementsPage({
                       </div>
                     </div>
 
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700"
-                      >
-                        تعديل
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white"
-                      >
-                        حذف
-                      </button>
-                    </div>
+                    {!isTeacher ? (
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="rounded-xl border px-3 py-2 text-sm font-medium text-slate-700"
+                        >
+                          تعديل
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white"
+                        >
+                          حذف
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))}
