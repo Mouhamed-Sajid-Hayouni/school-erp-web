@@ -150,6 +150,19 @@ const teacherTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
   },
 ];
 
+const studentParentTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
+  {
+    key: "portal",
+    label: "البوابة",
+    icon: <User className="h-4 w-4" />,
+  },
+  {
+    key: "messages",
+    label: "الرسائل",
+    icon: <MessageCircle className="h-4 w-4" />,
+  },
+];
+
 function normalizeSchoolName(value?: string) {
   if (!value || value === "School ERP") return "نظام إدارة المدرسة";
   return value;
@@ -184,7 +197,12 @@ export default function DashboardLayout({
       .map((part) => part[0]?.toUpperCase() ?? "")
       .join("") || "؟";
 
-  const visibleTabs = isTeacher ? teacherTabs : adminTabs;
+  const visibleTabs =
+    role === "ADMIN"
+      ? adminTabs
+      : isTeacher
+        ? teacherTabs
+        : studentParentTabs;
 
   const sidebarProfileImageUrl = profileImage
     ? profileImage.startsWith("http://") || profileImage.startsWith("https://")
