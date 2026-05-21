@@ -110,7 +110,7 @@ function formatDateTime(value: string) {
 
 function translateAudience(audience: AnnouncementItem["audience"]) {
   if (audience === "ALL") return "الجميع";
-  if (audience === "STUDENTS") return "التلاميذ";
+  if (audience === "STUDENTS") return "التلاميذ عبر الأولياء";
   if (audience === "PARENTS") return "الأولياء";
   if (audience === "TEACHERS") return "المعلّمون";
   if (audience === "CLASS") return "قسم محدد";

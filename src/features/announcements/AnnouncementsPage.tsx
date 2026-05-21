@@ -59,7 +59,7 @@ const emptyForm: FormState = {
 
 const audienceLabels: Record<AnnouncementAudience, string> = {
   ALL: "الجميع",
-  STUDENTS: "التلاميذ",
+  STUDENTS: "التلاميذ عبر الأولياء",
   PARENTS: "الأولياء",
   TEACHERS: "المعلّمون",
   CLASS: "قسم محدد",
@@ -337,7 +337,7 @@ export default function AnnouncementsPage({
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="text-2xl font-bold text-slate-900">الإعلانات</h2>
         <p className="mt-1 text-sm text-slate-500">
-          إنشاء وإدارة الإعلانات الموجهة إلى التلاميذ أو الأولياء أو المعلّمين أو قسم محدد.
+          إنشاء وإدارة الإعلانات الموجهة إلى الأولياء بخصوص التلاميذ أو الأولياء أو المعلّمين أو قسم محدد.
         </p>
       </div>
 
@@ -416,7 +416,7 @@ export default function AnnouncementsPage({
                 ) : (
                   <>
                     <option value="ALL">الجميع</option>
-                    <option value="STUDENTS">التلاميذ</option>
+                    <option value="STUDENTS">التلاميذ عبر الأولياء</option>
                     <option value="PARENTS">الأولياء</option>
                     <option value="TEACHERS">المعلّمون</option>
                     <option value="CLASS">قسم محدد</option>
