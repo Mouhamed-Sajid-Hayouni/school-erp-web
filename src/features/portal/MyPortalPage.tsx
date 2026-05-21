@@ -5,7 +5,7 @@ import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
 import {
   exportBulletinPdf,
-  type StudentBulletinResponse,
+  type StudentBulletinResponse as ChildBulletinSummary,
   type GradePeriod,
 } from "./exportBulletinPdf";
 import AssignmentsSection from "./AssignmentsSection";
@@ -45,7 +45,7 @@ type PortalAttendance = {
   };
 };
 
-type StudentPortalShape = {
+type ChildPortalRecord = {
   id?: string;
   user?: {
     firstName?: string;
@@ -65,10 +65,8 @@ type StudentPortalShape = {
 type ParentPortalResponse = {
   id: string;
   userId: string;
-  children?: StudentPortalShape[];
+  children?: ChildPortalRecord[];
 };
-
-type PortalResponse = ParentPortalResponse;
 
 type MyPortalPageProps = {
   apiBaseUrl: string;
@@ -139,10 +137,10 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("ar-TN");
 }
 
-function buildStudentBulletinFromPortal(
-  student: StudentPortalShape,
+function buildChildBulletinFromPortal(
+  student: ChildPortalRecord,
   period: GradePeriod
-): StudentBulletinResponse | null {
+): ChildBulletinSummary | null {
   if (!student.id || !student.user) {
     return null;
   }
@@ -245,7 +243,7 @@ function SummaryCards({
   summary,
   attendances,
 }: {
-  summary: StudentBulletinResponse | null;
+  summary: ChildBulletinSummary | null;
   attendances: PortalAttendance[];
 }) {
   const absences = attendances.filter((item) => item.status === "ABSENT").length;
@@ -291,7 +289,7 @@ function SubjectAverageSection({
   summary,
   loading,
 }: {
-  summary: StudentBulletinResponse | null;
+  summary: ChildBulletinSummary | null;
   loading: boolean;
 }) {
   return (
@@ -425,7 +423,7 @@ function AttendanceSection({
 }
 
 export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
-  const [data, setData] = useState<PortalResponse | null>(null);
+  const [data, setData] = useState<ParentPortalResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [portalError, setPortalError] = useState("");
 
@@ -438,7 +436,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
         setLoading(true);
         setPortalError("");
 
-        const json = await apiGet<PortalResponse>(
+        const json = await apiGet<ParentPortalResponse>(
           `${apiBaseUrl}/api/my-portal`,
           token
         );
@@ -464,10 +462,10 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
     const parentData = data as ParentPortalResponse;
     const children = parentData.children ?? [];
 
-    return children.reduce<Record<string, StudentBulletinResponse>>((acc, child) => {
+    return children.reduce<Record<string, ChildBulletinSummary>>((acc, child) => {
       if (!child.id) return acc;
 
-      const summary = buildStudentBulletinFromPortal(child, period);
+      const summary = buildChildBulletinFromPortal(child, period);
       if (summary) {
         acc[child.id] = summary;
       }
@@ -484,17 +482,17 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
     try {
       setSummaryError("");
 
-      let targetStudent: StudentPortalShape | null = null;
+      let targetChild: ChildPortalRecord | null = null;
 
       const parentData = data as ParentPortalResponse;
-      targetStudent =
+      targetChild =
         (parentData.children ?? []).find((child) => child.id === studentId) ?? null;
 
-      if (!targetStudent) {
+      if (!targetChild) {
         throw new Error("بيانات الابن غير متوفرة لاستخراج دفتر الأعداد.");
       }
 
-      const bulletin = buildStudentBulletinFromPortal(targetStudent, period);
+      const bulletin = buildChildBulletinFromPortal(targetChild, period);
 
       if (!bulletin) {
         throw new Error("بيانات دفتر الأعداد غير مكتملة.");
@@ -576,7 +574,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
             "تلميذ";
 
           const summary = child.id ? childSummaries[child.id] ?? null : null;
-          const targetStudentId = child.id ?? "";
+          const targetChildId = child.id ?? "";
 
           return (
             <section key={child.id ?? fullName} className="space-y-6">
@@ -591,12 +589,12 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
                   <button
                     onClick={() => {
-                      if (!targetStudentId) return;
-                      handleExportBulletin(targetStudentId);
+                      if (!targetChildId) return;
+                      handleExportBulletin(targetChildId);
                     }}
-                    disabled={!targetStudentId}
+                    disabled={!targetChildId}
                     className={`rounded-xl px-4 py-2 text-sm font-medium text-white ${
-                      targetStudentId
+                      targetChildId
                         ? "bg-slate-900 hover:bg-slate-800"
                         : "cursor-not-allowed bg-slate-300"
                     }`}
@@ -605,7 +603,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
                   </button>
                 </div>
 
-                {!targetStudentId ? (
+                {!targetChildId ? (
                   <p className="mt-3 text-xs text-amber-600">
                    لم يتم تحديد معرّف الابن بعد لاستخراج PDF.
                   </p>
