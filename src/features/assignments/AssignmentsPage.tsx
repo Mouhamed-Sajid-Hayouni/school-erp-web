@@ -55,6 +55,13 @@ type TeacherOverviewResponse = {
       role?: string;
     };
   };
+  schedules?: {
+    id: string;
+    classId?: string;
+    subjectId?: string;
+    class?: ClassItem | null;
+    subject?: SubjectItem | null;
+  }[];
   assignments: AssignmentItem[];
 };
 
@@ -194,17 +201,26 @@ export default function AssignmentsPage({
 
   const fetchLookups = async () => {
     if (isTeacher) {
-      const [classesData, subjectsData, teacherOverview] = await Promise.all([
-        apiRequest<ClassItem[]>(`${apiBaseUrl}/api/classes`, token),
-        apiRequest<SubjectItem[]>(`${apiBaseUrl}/api/subjects`, token),
-        apiGet<TeacherOverviewResponse>(
-          `${apiBaseUrl}/api/my-teacher-overview`,
-          token
-        ),
-      ]);
+      const teacherOverview = await apiGet<TeacherOverviewResponse>(
+        `${apiBaseUrl}/api/my-teacher-overview`,
+        token
+      );
 
-      setClasses(Array.isArray(classesData) ? classesData : []);
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
+      const classMap = new Map<string, ClassItem>();
+      const subjectMap = new Map<string, SubjectItem>();
+
+      for (const schedule of teacherOverview?.schedules ?? []) {
+        if (schedule.class?.id) {
+          classMap.set(schedule.class.id, schedule.class);
+        }
+
+        if (schedule.subject?.id) {
+          subjectMap.set(schedule.subject.id, schedule.subject);
+        }
+      }
+
+      setClasses(Array.from(classMap.values()));
+      setSubjects(Array.from(subjectMap.values()));
       setTeachers([]);
       setMyTeacherId(teacherOverview?.teacher?.id ?? "");
       setForm((prev) => ({
