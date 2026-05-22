@@ -22,6 +22,15 @@ type ClassOption = {
   academicYear?: string;
 };
 
+type PendingRequestRow = UserRow & {
+  parentProfile?: {
+    address: string | null;
+  } | null;
+  teacherProfile?: {
+    specialty: string | null;
+  } | null;
+};
+
 type UsersPageProps = {
   apiBaseUrl: string;
   token: string;
@@ -173,10 +182,13 @@ function UserAvatar({
 export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequestRow[]>([]);
 
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingClasses, setLoadingClasses] = useState(true);
+  const [loadingPendingRequests, setLoadingPendingRequests] = useState(true);
   const [error, setError] = useState("");
+  const [pendingRequestsError, setPendingRequestsError] = useState("");
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -189,6 +201,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploadingImageId, setUploadingImageId] = useState<string | null>(null);
+  const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -202,6 +215,24 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       setError(translateError(message));
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const fetchPendingRequests = async () => {
+    try {
+      setLoadingPendingRequests(true);
+      setPendingRequestsError("");
+
+      const json = await apiGet<PendingRequestRow[]>(
+        `${apiBaseUrl}/api/users/pending-requests`,
+        token
+      );
+      setPendingRequests(Array.isArray(json) ? json : []);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "\u062d\u062f\u062b \u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u062a\u0648\u0642\u0639.";
+      setPendingRequestsError(translateError(message));
+    } finally {
+      setLoadingPendingRequests(false);
     }
   };
 
@@ -222,6 +253,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
 
   useEffect(() => {
     fetchUsers();
+    fetchPendingRequests();
     fetchClasses();
   }, []);
 
@@ -467,6 +499,31 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     }
   };
 
+  const handleApproveRegistrationRequest = async (id: string) => {
+    const confirmed = window.confirm(pendingRequestText.confirm);
+
+    if (!confirmed) return;
+
+    try {
+      setApprovingRequestId(id);
+      setPendingRequestsError("");
+
+      await apiPost<{ message: string }, Record<string, never>>(
+        `${apiBaseUrl}/api/users/${id}/approve-request`,
+        token,
+        {}
+      );
+
+      await fetchPendingRequests();
+      await fetchUsers();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "\u062d\u062f\u062b \u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u062a\u0648\u0642\u0639.";
+      setPendingRequestsError(translateError(message));
+    } finally {
+      setApprovingRequestId(null);
+    }
+  };
+
   const editingUser = editingUserId
     ? users.find((user) => user.id === editingUserId)
     : null;
@@ -475,6 +532,25 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const canAdminCreateUsers = false;
   const canAdminUploadUserImages = false;
 
+  const pendingRequestText = {
+    requestsTitle: '\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u062d\u0633\u0627\u0628\u0627\u062a \u0627\u0644\u0645\u0639\u0644\u0651\u0642\u0629',
+    requestsDescription: '\u062a\u0641\u0639\u064a\u0644 \u062d\u0633\u0627\u0628\u0627\u062a \u0627\u0644\u0623\u0648\u0644\u064a\u0627\u0621 \u0648\u0627\u0644\u0645\u0639\u0644\u0645\u064a\u0646 \u0628\u0639\u062f \u0627\u0644\u062a\u062b\u0628\u062a \u0645\u0646 \u0627\u0644\u0637\u0644\u0628. \u0644\u0627 \u064a\u062a\u0645 \u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628\u0627\u062a \u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u0644\u062a\u0644\u0627\u0645\u064a\u0630.',
+    refresh: '\u062a\u062d\u062f\u064a\u062b \u0627\u0644\u0637\u0644\u0628\u0627\u062a',
+    loading: '\u062c\u0627\u0631\u064d \u062a\u062d\u0645\u064a\u0644 \u0637\u0644\u0628\u0627\u062a \u0627\u0644\u062d\u0633\u0627\u0628...',
+    empty: '\u0644\u0627 \u062a\u0648\u062c\u062f \u0637\u0644\u0628\u0627\u062a \u062d\u0633\u0627\u0628 \u0645\u0639\u0644\u0651\u0642\u0629.',
+    approve: '\u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u062d\u0633\u0627\u0628',
+    approving: '\u062c\u0627\u0631\u064d \u0627\u0644\u062a\u0641\u0639\u064a\u0644...',
+    confirm: '\u0647\u0644 \u062a\u0631\u064a\u062f \u062a\u0641\u0639\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u062d\u0633\u0627\u0628\u061f',
+    parent: '\u0648\u0644\u064a',
+    teacher: '\u0645\u0639\u0644\u0651\u0645',
+    address: '\u0627\u0644\u0639\u0646\u0648\u0627\u0646',
+    specialty: '\u0627\u0644\u0627\u062e\u062a\u0635\u0627\u0635',
+    submittedAt: '\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0637\u0644\u0628',
+    pendingLabel: '\u0641\u064a \u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629',
+    noExtra: '\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0625\u0636\u0627\u0641\u064a\u0629.',
+    phone: '\u0627\u0644\u0647\u0627\u062a\u0641',
+    email: '\u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a',
+  };
 
   return (
     <div className="space-y-6 text-right" dir="rtl">
@@ -492,6 +568,98 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
         هذه الصفحة للعرض فقط. إنشاء المستخدمين أو تعديلهم أو حذفهم معطّل من الخادم.
       </div>
+
+
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold">{pendingRequestText.requestsTitle}</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              {pendingRequestText.requestsDescription}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={fetchPendingRequests}
+            className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+          >
+            {pendingRequestText.refresh}
+          </button>
+        </div>
+
+        {loadingPendingRequests ? (
+          <LoadingState message={pendingRequestText.loading} />
+        ) : pendingRequestsError ? (
+          <ErrorState message={pendingRequestsError} />
+        ) : pendingRequests.length === 0 ? (
+          <EmptyState message={pendingRequestText.empty} />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {pendingRequests.map((request) => {
+              const isParentRequest = request.role === "PARENT";
+              const extraLabel = isParentRequest
+                ? pendingRequestText.address
+                : pendingRequestText.specialty;
+              const extraValue = isParentRequest
+                ? request.parentProfile?.address
+                : request.teacherProfile?.specialty;
+
+              return (
+                <article
+                  key={request.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {request.firstName} {request.lastName}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {isParentRequest ? pendingRequestText.parent : pendingRequestText.teacher}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                      {pendingRequestText.pendingLabel}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 text-sm text-slate-600">
+                    <p>
+                      <span className="font-medium">{pendingRequestText.email}: </span>
+                      <span dir="ltr">{request.email}</span>
+                    </p>
+                    {request.phone ? (
+                      <p>
+                        <span className="font-medium">{pendingRequestText.phone}: </span>
+                        <span dir="ltr">{request.phone}</span>
+                      </p>
+                    ) : null}
+                    <p>
+                      <span className="font-medium">{extraLabel}: </span>
+                      {extraValue || pendingRequestText.noExtra}
+                    </p>
+                    <p>
+                      <span className="font-medium">{pendingRequestText.submittedAt}: </span>
+                      {formatDate(request.createdAt)}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleApproveRegistrationRequest(request.id)}
+                    disabled={approvingRequestId === request.id}
+                    className="mt-4 w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {approvingRequestId === request.id
+                      ? pendingRequestText.approving
+                      : pendingRequestText.approve}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {canAdminCreateUsers && showCreateForm ? (
         <section className="rounded-2xl bg-white p-6 shadow-sm">
