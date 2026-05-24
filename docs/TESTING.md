@@ -17,7 +17,7 @@ Should be able to:
 - manage classes
 - manage subjects
 - manage schedules
-- manage attendance
+- view attendance reports
 - manage grades
 
 ### Teacher

@@ -8,8 +8,8 @@
 5. Open Subjects
 6. Open Schedules
 7. Edit a schedule
-8. Open Attendance
-9. Save attendance
+8. Open Reports
+9. Show attendance report
 10. Open Grades
 11. Save grades
 
