@@ -119,7 +119,7 @@ Should be able to:
 After backend changes:
 - login still works
 - JWT-protected routes still work
-- `/api/my-portal` still works for both student and parent
+- `/api/my-portal` remains parent-only and direct student login remains blocked
 - schedule update still works
 
 After web frontend changes:
