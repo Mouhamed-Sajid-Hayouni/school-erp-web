@@ -35,12 +35,14 @@ It supports:
 ## Main Features
 
 ### Admin / Teacher
-- Create, edit, and delete users
-- Create and delete classes
-- Create and delete subjects
-- Create, edit, and delete schedules
-- Record attendance
-- Record grades
+- Admin consults users in read-only mode
+- Admin approves or rejects pending parent/teacher account requests
+- Direct user create/edit/delete/password/profile-image actions stay blocked
+- Admin creates and deletes classes
+- Admin creates and deletes subjects
+- Admin creates, edits, and deletes schedules
+- Teachers record attendance for their assigned schedules
+- Teachers record grades within their assigned teaching scope
 
 ### Student Records
 - Students are school records only

@@ -10,9 +10,10 @@
 
 ### Admin
 Should be able to:
-- create users
-- edit users
-- delete users
+- view users in read-only mode
+- review pending parent/teacher account requests
+- approve or reject pending account requests
+- confirm direct user create/edit/delete/password/profile-image actions stay blocked
 - manage classes
 - manage subjects
 - manage schedules
@@ -45,13 +46,14 @@ Should be able to:
 ## Web Test Checklist
 
 ### Users
-- Add User opens the create form
-- creating ADMIN works
-- creating TEACHER works
-- creating STUDENT works with class selection
-- creating PARENT works with student linking
-- Edit updates first name, last name, and email
-- Delete works
+- Users page opens in read-only mode
+- Direct ADMIN/TEACHER/STUDENT account creation through admin user management is blocked
+- Parent and teacher accounts are requested through self-registration
+- Student records remain school records without direct login
+- Pending parent/teacher account requests load
+- Approve pending request works
+- Reject pending request works
+- Direct create/edit/delete/password/profile-image API actions return 403
 - Refresh works
 
 ### Classes
@@ -125,7 +127,7 @@ After web frontend changes:
 - dashboard still renders
 - role routing still works
 - no placeholder pages remain
-- CRUD pages still function
+- allowed pages still function according to role boundaries
 
 After mobile changes:
 - APK still builds
