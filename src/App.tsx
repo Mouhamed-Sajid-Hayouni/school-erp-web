@@ -41,7 +41,7 @@ function translateLoginError(message?: string) {
 }
 
 function LoginScreen() {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,6 +60,11 @@ function LoginScreen() {
   const [registerError, setRegisterError] = useState('');
   const [registerSuccess, setRegisterSuccess] = useState('');
   const [registering, setRegistering] = useState(false);
+
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
+  const [requestingReset, setRequestingReset] = useState(false);
 
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
@@ -98,6 +103,14 @@ function LoginScreen() {
     sending: '\u062c\u0627\u0631\u064d \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628...',
     sendRequest: '\u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0644\u062d\u0633\u0627\u0628',
     approvalNote: '\u064a\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u062d\u0633\u0627\u0628 \u0628\u0639\u062f \u0645\u0631\u0627\u062c\u0639\u0629 \u0648\u0645\u0648\u0627\u0641\u0642\u0629 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u062f\u0631\u0633\u0629.',
+    forgotPassword: '\u0646\u0633\u064a\u062a \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631\u061f',
+    forgotTitle: '\u0637\u0644\u0628 \u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631',
+    forgotDescription: '\u0623\u062f\u062e\u0644 \u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0627\u0644\u0645\u0631\u062a\u0628\u0637 \u0628\u062d\u0633\u0627\u0628 \u0627\u0644\u0648\u0644\u064a \u0623\u0648 \u0627\u0644\u0645\u0639\u0644\u0651\u0645. \u0633\u062a\u062a\u0645 \u0645\u0631\u0627\u062c\u0639\u0629 \u0627\u0644\u0637\u0644\u0628 \u0645\u0646 \u0637\u0631\u0641 \u0627\u0644\u0625\u062f\u0627\u0631\u0629.',
+    sendResetRequest: '\u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0644\u0627\u0633\u062a\u0631\u062c\u0627\u0639',
+    sendingReset: '\u062c\u0627\u0631\u064d \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628...',
+    resetRequestSent: '\u0625\u0646 \u0643\u0627\u0646 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064a\u062f \u0645\u0631\u062a\u0628\u0637\u064b\u0627 \u0628\u062d\u0633\u0627\u0628 \u0648\u0644\u064a \u0623\u0648 \u0645\u0639\u0644\u0651\u0645 \u0645\u0641\u0639\u0651\u0644\u060c \u0641\u0642\u062f \u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631. \u064a\u0631\u062c\u0649 \u0627\u0644\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u062f\u0631\u0633\u0629.',
+    resetRequestError: '\u062a\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631.',
+    backToLogin: '\u0627\u0644\u0631\u062c\u0648\u0639 \u0625\u0644\u0649 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644',
   };
 
   const translateRegisterError = (message?: string) => {
@@ -217,6 +230,49 @@ function LoginScreen() {
     }
   };
 
+
+  const handlePasswordResetRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotSuccess('');
+
+    const normalizedEmail = forgotEmail.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setForgotError(t.emailInvalid);
+      return;
+    }
+
+    try {
+      setRequestingReset(true);
+
+      const response = await fetch(API_BASE_URL + '/api/password-reset/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const normalizedMessage = String(data.error ?? '').toLowerCase();
+        setForgotError(
+          normalizedMessage.includes('email must be valid')
+            ? t.emailInvalid
+            : t.resetRequestError
+        );
+        return;
+      }
+
+      setForgotSuccess(t.resetRequestSent);
+      setForgotEmail('');
+    } catch {
+      setForgotError(t.connectionError);
+    } finally {
+      setRequestingReset(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4" dir="rtl">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
@@ -225,7 +281,7 @@ function LoginScreen() {
             {t.systemName}
           </h1>
           <p className="text-gray-500">
-            {mode === 'login' ? t.loginTitle : t.registerTitle}
+            {mode === 'login' ? t.loginTitle : mode === 'register' ? t.registerTitle : t.forgotTitle}
           </p>
         </div>
 
@@ -235,6 +291,8 @@ function LoginScreen() {
             onClick={() => {
               setMode('login');
               setError('');
+              setForgotError('');
+              setForgotSuccess('');
             }}
             className={
               mode === 'login'
@@ -251,6 +309,8 @@ function LoginScreen() {
               setMode('register');
               setRegisterError('');
               setRegisterSuccess('');
+              setForgotError('');
+              setForgotSuccess('');
             }}
             className={
               mode === 'register'
@@ -303,6 +363,72 @@ function LoginScreen() {
               className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
             >
               {t.login}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode('forgot');
+                setError('');
+                setForgotError('');
+                setForgotSuccess('');
+                setForgotEmail(email);
+              }}
+              className="w-full text-center text-sm font-medium text-blue-700 hover:text-blue-800"
+            >
+              {t.forgotPassword}
+            </button>
+          </form>
+        ) : mode === 'forgot' ? (
+          <form onSubmit={handlePasswordResetRequest} className="space-y-5">
+            <p className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              {t.forgotDescription}
+            </p>
+
+            {forgotError ? (
+              <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                {forgotError}
+              </div>
+            ) : null}
+
+            {forgotSuccess ? (
+              <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+                {forgotSuccess}
+              </div>
+            ) : null}
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                {t.email}
+              </label>
+              <input
+                type="email"
+                dir="ltr"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-left focus:ring-2 focus:ring-blue-500"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={requestingReset}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {requestingReset ? t.sendingReset : t.sendResetRequest}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setForgotError('');
+                setForgotSuccess('');
+              }}
+              className="w-full text-center text-sm font-medium text-slate-600 hover:text-slate-900"
+            >
+              {t.backToLogin}
             </button>
           </form>
         ) : (
