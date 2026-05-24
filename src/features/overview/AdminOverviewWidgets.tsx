@@ -380,9 +380,9 @@ export default function AdminOverviewWidgets({
             onClick={() => onNavigate?.("assignments")}
             className="rounded-2xl border border-slate-200 bg-white p-4 text-right hover:bg-slate-50"
           >
-            <p className="font-semibold text-slate-900">إدارة الواجبات</p>
+            <p className="font-semibold text-slate-900">متابعة الواجبات</p>
             <p className="mt-1 text-sm text-slate-500">
-              إنشاء الواجبات ومتابعة آجالها
+              متابعة الواجبات وآجالها دون إنشاء أو تعديل
             </p>
           </button>
 
