@@ -18,7 +18,7 @@ Should be able to:
 - manage subjects
 - manage schedules
 - view attendance reports
-- manage grades
+- view grades reports
 
 ### Teacher
 Should be able to:
@@ -26,12 +26,9 @@ Should be able to:
 - manage attendance
 - manage grades
 
-### Student
-Should be able to:
-- log in
-- view timetable
-- view grades
-- view absences
+### Student Records
+Students do not have direct login accounts.
+They are managed as school records only, and timetable, grades, and absences are accessed through linked parent accounts.
 
 ### Parent
 Should be able to:
@@ -101,12 +98,10 @@ Should be able to:
 
 ## Mobile Test Checklist
 
-### Student
-- login works
-- timetable displays
-- grades display
-- absences display
-- logout works
+### Student Records
+- no direct login
+- managed as school records only
+- timetable, grades, and absences are accessed through linked parent accounts
 
 ### Parent
 - login works

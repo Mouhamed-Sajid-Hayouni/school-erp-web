@@ -10,8 +10,8 @@
 7. Edit a schedule
 8. Open Reports
 9. Show attendance report
-10. Open Grades
-11. Save grades
+10. Open Reports
+11. Show grades report
 
 ## Parent Flow
 1. Logout
