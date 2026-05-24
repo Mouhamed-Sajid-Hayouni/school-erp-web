@@ -54,6 +54,10 @@ Should be able to:
 - Approve pending request works
 - Reject pending request works
 - Direct create/edit/delete/password/profile-image API actions return 403
+- Forgot-password request form is available from the login page
+- Password-reset request with a valid email format returns a generic safe message
+- Password-reset request with invalid email format returns 400
+- Direct password update route remains protected/blocked
 - Refresh works
 
 ### Classes
