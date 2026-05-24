@@ -9,9 +9,7 @@
 6. Open Schedules
 7. Edit a schedule
 8. Open Reports
-9. Show attendance report
-10. Open Reports
-11. Show grades report
+9. Show grades report
 
 ## Parent Flow
 1. Logout
