@@ -360,9 +360,9 @@ export default function AdminOverviewWidgets({
             onClick={() => onNavigate?.("users")}
             className="rounded-2xl border border-slate-200 bg-white p-4 text-right hover:bg-slate-50"
           >
-            <p className="font-semibold text-slate-900">إدارة المستخدمين</p>
+            <p className="font-semibold text-slate-900">متابعة الحسابات</p>
             <p className="mt-1 text-sm text-slate-500">
-              إنشاء حسابات المستخدمين وتحيين بياناتهم
+              عرض المستخدمين ومتابعة طلبات الحسابات دون إنشاء مباشر
             </p>
           </button>
 
