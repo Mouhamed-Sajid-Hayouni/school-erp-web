@@ -454,7 +454,7 @@ export default function AssignmentsPage({
             <p className="mt-1 text-sm text-slate-500">
               {isTeacher
                 ? "إنشاء واجباتك وتعديلها ومتابعة آجالها."
-                : "إنشاء الواجبات وتعديلها وتصفيتها حسب القسم والمادة."}
+                : "عرض الواجبات وتصفيتها حسب القسم والمادة."}
             </p>
           </div>
 
@@ -510,7 +510,8 @@ export default function AssignmentsPage({
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <div className={`grid gap-6 ${isTeacher ? "xl:grid-cols-[420px_1fr]" : ""}`}>
+        {isTeacher ? (
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-900">{pageTitle}</h3>
@@ -660,6 +661,7 @@ export default function AssignmentsPage({
             </button>
           </form>
         </div>
+        ) : null}
 
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
@@ -721,6 +723,7 @@ export default function AssignmentsPage({
                       </div>
                     </div>
 
+                    {isTeacher ? (
                     <div className="flex shrink-0 gap-2">
                       <button
                         onClick={() => handleEdit(assignment)}
@@ -735,6 +738,7 @@ export default function AssignmentsPage({
                         حذف
                       </button>
                     </div>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -743,7 +747,7 @@ export default function AssignmentsPage({
         </div>
       </div>
 
-      {pendingDeleteId ? (
+      {isTeacher && pendingDeleteId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 text-right shadow-xl" dir="rtl">
             <h3 className="text-lg font-semibold text-slate-900">
