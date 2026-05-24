@@ -202,6 +202,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploadingImageId, setUploadingImageId] = useState<string | null>(null);
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -524,6 +525,32 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     }
   };
 
+
+  const handleRejectRegistrationRequest = async (id: string) => {
+    const confirmed = window.confirm(pendingRequestText.rejectConfirm);
+
+    if (!confirmed) return;
+
+    try {
+      setRejectingRequestId(id);
+      setPendingRequestsError("");
+
+      await apiPost<{ message: string }, Record<string, never>>(
+        `${apiBaseUrl}/api/users/${id}/reject-request`,
+        token,
+        {}
+      );
+
+      await fetchPendingRequests();
+      await fetchUsers();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "\u062d\u062f\u062b \u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u062a\u0648\u0642\u0639.";
+      setPendingRequestsError(translateError(message));
+    } finally {
+      setRejectingRequestId(null);
+    }
+  };
+
   const editingUser = editingUserId
     ? users.find((user) => user.id === editingUserId)
     : null;
@@ -540,7 +567,10 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     empty: '\u0644\u0627 \u062a\u0648\u062c\u062f \u0637\u0644\u0628\u0627\u062a \u062d\u0633\u0627\u0628 \u0645\u0639\u0644\u0651\u0642\u0629.',
     approve: '\u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u062d\u0633\u0627\u0628',
     approving: '\u062c\u0627\u0631\u064d \u0627\u0644\u062a\u0641\u0639\u064a\u0644...',
+    reject: '\u0631\u0641\u0636 \u0627\u0644\u0637\u0644\u0628',
+    rejecting: '\u062c\u0627\u0631\u064d \u0627\u0644\u0631\u0641\u0636...',
     confirm: '\u0647\u0644 \u062a\u0631\u064a\u062f \u062a\u0641\u0639\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u062d\u0633\u0627\u0628\u061f',
+    rejectConfirm: '\u0647\u0644 \u062a\u0631\u064a\u062f \u0631\u0641\u0636 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628\u061f \u0633\u064a\u062a\u0645 \u062d\u0630\u0641 \u062d\u0633\u0627\u0628\u0647 \u0627\u0644\u0645\u0639\u0644\u0651\u0642.',
     parent: '\u0648\u0644\u064a',
     teacher: '\u0645\u0639\u0644\u0651\u0645',
     address: '\u0627\u0644\u0639\u0646\u0648\u0627\u0646',
@@ -603,6 +633,8 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
               const extraValue = isParentRequest
                 ? request.parentProfile?.address
                 : request.teacherProfile?.specialty;
+              const isCurrentRequestBusy =
+                approvingRequestId === request.id || rejectingRequestId === request.id;
 
               return (
                 <article
@@ -644,16 +676,28 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleApproveRegistrationRequest(request.id)}
-                    disabled={approvingRequestId === request.id}
-                    className="mt-4 w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                  >
-                    {approvingRequestId === request.id
-                      ? pendingRequestText.approving
-                      : pendingRequestText.approve}
-                  </button>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApproveRegistrationRequest(request.id)}
+                      disabled={isCurrentRequestBusy}
+                      className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      {approvingRequestId === request.id
+                        ? pendingRequestText.approving
+                        : pendingRequestText.approve}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRejectRegistrationRequest(request.id)}
+                      disabled={isCurrentRequestBusy}
+                      className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      {rejectingRequestId === request.id
+                        ? pendingRequestText.rejecting
+                        : pendingRequestText.reject}
+                    </button>
+                  </div>
                 </article>
               );
             })}
