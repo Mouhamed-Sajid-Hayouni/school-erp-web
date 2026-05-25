@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -159,7 +159,7 @@ export default function SchedulesPage({
   const [subjectFilter, setSubjectFilter] = useState("ALL");
   const [teacherFilter, setTeacherFilter] = useState("ALL");
 
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -185,9 +185,9 @@ export default function SchedulesPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl, token, isTeacher, showToast]);
 
-  const fetchLookups = async () => {
+  const fetchLookups = useCallback(async () => {
     try {
       setLoadingLookups(true);
       setError("");
@@ -215,12 +215,12 @@ export default function SchedulesPage({
     } finally {
       setLoadingLookups(false);
     }
-  };
+  }, [apiBaseUrl, token, isTeacher, showToast]);
 
   useEffect(() => {
     fetchSchedules();
     fetchLookups();
-  }, []);
+  }, [fetchSchedules, fetchLookups]);
 
   const handleChange = (
     field:
