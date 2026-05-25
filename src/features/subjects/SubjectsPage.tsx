@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiDelete, apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -54,7 +54,7 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -69,11 +69,11 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl, token, showToast]);
 
   useEffect(() => {
     fetchSubjects();
-  }, []);
+  }, [fetchSubjects]);
 
   const filteredSubjects = useMemo(() => {
     const value = searchTerm.trim().toLowerCase();
