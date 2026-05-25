@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell, CheckCheck, MessageCircle } from "lucide-react";
 
 type NotificationItem = {
@@ -117,22 +117,25 @@ export default function NotificationsBell({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const fetchNotifications = async (showError = true) => {
-    try {
-      const data = await apiRequest<NotificationItem[]>(
-        `${apiBaseUrl}/api/my-notifications`,
-        token
-      );
-      setNotifications(data);
-      setError("");
-    } catch (err) {
-      if (showError) {
-        setError(
-          err instanceof Error ? err.message : "تعذر تحميل الإشعارات."
+  const fetchNotifications = useCallback(
+    async (showError = true) => {
+      try {
+        const data = await apiRequest<NotificationItem[]>(
+          `${apiBaseUrl}/api/my-notifications`,
+          token
         );
+        setNotifications(data);
+        setError("");
+      } catch (err) {
+        if (showError) {
+          setError(
+            err instanceof Error ? err.message : "تعذر تحميل الإشعارات."
+          );
+        }
       }
-    }
-  };
+    },
+    [apiBaseUrl, token]
+  );
 
   useEffect(() => {
     const run = async () => {
@@ -151,7 +154,7 @@ export default function NotificationsBell({
     }, 15000);
 
     return () => window.clearInterval(intervalId);
-  }, [apiBaseUrl, token]);
+  }, [fetchNotifications]);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.isRead).length,
