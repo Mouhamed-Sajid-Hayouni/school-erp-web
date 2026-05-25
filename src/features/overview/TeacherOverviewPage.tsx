@@ -152,12 +152,12 @@ export default function TeacherOverviewPage({
     };
 
     run();
-  }, [apiBaseUrl, token]);
+  }, [apiBaseUrl, token, showToast]);
 
-  const schedules = data?.schedules ?? [];
-  const assignments = data?.assignments ?? [];
-  const announcements = data?.announcements ?? [];
-  const notifications = data?.notifications ?? [];
+  const schedules = useMemo(() => data?.schedules ?? [], [data]);
+  const assignments = useMemo(() => data?.assignments ?? [], [data]);
+  const announcements = useMemo(() => data?.announcements ?? [], [data]);
+  const notifications = useMemo(() => data?.notifications ?? [], [data]);
 
   const myClassesCount = useMemo(() => {
     return new Set(
