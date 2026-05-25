@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -151,7 +151,7 @@ export default function AttendancePage({
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     try {
       setLoadingSchedules(true);
       setError("");
@@ -164,8 +164,8 @@ export default function AttendancePage({
         const list = Array.isArray(json?.schedules) ? json.schedules : [];
         setSchedules(list);
 
-        if (!selectedScheduleId && list.length > 0) {
-          setSelectedScheduleId(list[0].id);
+        if (list.length > 0) {
+          setSelectedScheduleId((current) => current || list[0].id);
         }
 
         return;
@@ -175,8 +175,8 @@ export default function AttendancePage({
       const list = Array.isArray(json) ? json : [];
       setSchedules(list);
 
-      if (!selectedScheduleId && list.length > 0) {
-        setSelectedScheduleId(list[0].id);
+      if (list.length > 0) {
+        setSelectedScheduleId((current) => current || list[0].id);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
@@ -186,9 +186,9 @@ export default function AttendancePage({
     } finally {
       setLoadingSchedules(false);
     }
-  };
+  }, [apiBaseUrl, token, isTeacher, showToast]);
 
-  const fetchClassStudents = async (scheduleId: string) => {
+  const fetchClassStudents = useCallback(async (scheduleId: string) => {
     const selected = schedules.find((item) => item.id === scheduleId);
     const classId = selected?.class?.id;
 
@@ -211,9 +211,9 @@ export default function AttendancePage({
       setClassStudents([]);
       showToast(translated, "error");
     }
-  };
+  }, [apiBaseUrl, token, schedules, showToast]);
 
-  const fetchAttendance = async (scheduleId: string, date: string) => {
+  const fetchAttendance = useCallback(async (scheduleId: string, date: string) => {
     if (!scheduleId || !date) return;
 
     try {
@@ -243,11 +243,11 @@ export default function AttendancePage({
     } finally {
       setLoadingAttendance(false);
     }
-  };
+  }, [apiBaseUrl, token, showToast]);
 
   useEffect(() => {
     fetchSchedules();
-  }, []);
+  }, [fetchSchedules]);
 
   useEffect(() => {
     if (selectedScheduleId) {
@@ -255,13 +255,13 @@ export default function AttendancePage({
     } else {
       setClassStudents([]);
     }
-  }, [selectedScheduleId, schedules]);
+  }, [selectedScheduleId, fetchClassStudents]);
 
   useEffect(() => {
     if (selectedScheduleId && selectedDate) {
       fetchAttendance(selectedScheduleId, selectedDate);
     }
-  }, [selectedScheduleId, selectedDate]);
+  }, [selectedScheduleId, selectedDate, fetchAttendance]);
 
   const selectedSchedule = useMemo(
     () => schedules.find((item) => item.id === selectedScheduleId) ?? null,
