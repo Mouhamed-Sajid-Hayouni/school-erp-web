@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -144,11 +144,11 @@ function UserAvatar({
 
 export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [, setClasses] = useState<ClassOption[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequestRow[]>([]);
 
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadingClasses, setLoadingClasses] = useState(true);
+  const [, setLoadingClasses] = useState(true);
   const [loadingPendingRequests, setLoadingPendingRequests] = useState(true);
   const [error, setError] = useState("");
   const [pendingRequestsError, setPendingRequestsError] = useState("");
@@ -210,10 +210,6 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     fetchClasses();
   }, []);
 
-  const studentUsers = useMemo(
-    () => users.filter((user) => user.role === "STUDENT"),
-    [users]
-  );
 
   const handleApproveRegistrationRequest = async (id: string) => {
     const confirmed = window.confirm(pendingRequestText.confirm);

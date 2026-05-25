@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { getVisibleStudentEmail } from "../../utils/studentEmail";
 
@@ -151,9 +151,6 @@ export default function ReportsPage() {
 
   const token = localStorage.getItem("token");
 
-  const selectedClass = useMemo(() => {
-    return classes.find((item) => item.id === classId) || null;
-  }, [classes, classId]);
 
   useEffect(() => {
     async function loadSchoolSettings() {

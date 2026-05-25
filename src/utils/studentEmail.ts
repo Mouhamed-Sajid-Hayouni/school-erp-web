@@ -7,7 +7,8 @@ export function isInternalStudentEmail(email?: string | null) {
   );
 }
 
-export function getVisibleStudentEmail(_email?: string | null) {
+export function getVisibleStudentEmail(email?: string | null) {
+  void email;
   return "";
 }
 
