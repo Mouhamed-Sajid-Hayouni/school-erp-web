@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useToast } from "../../components/common/ToastProvider";
 
 type ClassItem = {
@@ -154,7 +154,7 @@ export default function AnnouncementsPage({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const announcementsData = await apiRequest<AnnouncementItem[]>(
       `${apiBaseUrl}/api/announcements`,
       token
@@ -186,7 +186,7 @@ export default function AnnouncementsPage({
 
     setAnnouncements(Array.isArray(announcementsData) ? announcementsData : []);
     setClasses(Array.isArray(classesData) ? classesData : []);
-  };
+  }, [apiBaseUrl, token, isTeacher]);
 
   useEffect(() => {
     const run = async () => {
@@ -206,7 +206,7 @@ export default function AnnouncementsPage({
     };
 
     run();
-  }, [apiBaseUrl, token, isTeacher]);
+  }, [fetchData, showToast]);
 
   const resetForm = () => {
     setForm(defaultForm);
