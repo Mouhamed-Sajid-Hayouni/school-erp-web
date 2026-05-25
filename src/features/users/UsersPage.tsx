@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -156,7 +156,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoadingUsers(true);
       setError("");
@@ -169,9 +169,9 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, [apiBaseUrl, token]);
 
-  const fetchPendingRequests = async () => {
+  const fetchPendingRequests = useCallback(async () => {
     try {
       setLoadingPendingRequests(true);
       setPendingRequestsError("");
@@ -187,9 +187,9 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     } finally {
       setLoadingPendingRequests(false);
     }
-  };
+  }, [apiBaseUrl, token]);
 
-  const fetchClasses = async () => {
+  const fetchClasses = useCallback(async () => {
     try {
       setLoadingClasses(true);
       setError("");
@@ -202,13 +202,13 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     } finally {
       setLoadingClasses(false);
     }
-  };
+  }, [apiBaseUrl, token]);
 
   useEffect(() => {
     fetchUsers();
     fetchPendingRequests();
     fetchClasses();
-  }, []);
+  }, [fetchUsers, fetchPendingRequests, fetchClasses]);
 
 
   const handleApproveRegistrationRequest = async (id: string) => {
