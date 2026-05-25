@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -208,7 +208,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
   const visibleClasses = isTeacher ? teacherClasses : classes;
   const visibleSubjects = isTeacher ? teacherSubjects : subjects;
 
-  const fetchLookups = async () => {
+  const fetchLookups = useCallback(async () => {
     try {
       setLoadingLookups(true);
       setError("");
@@ -245,7 +245,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
     } finally {
       setLoadingLookups(false);
     }
-  };
+  }, [apiBaseUrl, token, isTeacher, showToast]);
 
   const buildGradeMap = (
     studentList: StudentRow[],
@@ -270,7 +270,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
     return nextMap;
   };
 
-  const fetchGrades = async (
+  const fetchGrades = useCallback(async (
     classId: string,
     subjectId: string,
     currentPeriod: GradePeriod
@@ -299,11 +299,11 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
     } finally {
       setLoadingGrades(false);
     }
-  };
+  }, [apiBaseUrl, token, showToast]);
 
   useEffect(() => {
     fetchLookups();
-  }, []);
+  }, [fetchLookups]);
 
   useEffect(() => {
     if (visibleClasses.length === 0) return;
@@ -336,7 +336,7 @@ export default function GradesPage({ apiBaseUrl, token }: GradesPageProps) {
     if (selectedClassId && selectedSubjectId) {
       fetchGrades(selectedClassId, selectedSubjectId, period);
     }
-  }, [selectedClassId, selectedSubjectId, period]);
+  }, [selectedClassId, selectedSubjectId, period, fetchGrades]);
 
   useEffect(() => {
     setGradeMap(buildGradeMap(students, examType));
