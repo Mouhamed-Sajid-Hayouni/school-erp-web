@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Assignment = {
   id: string;
@@ -227,7 +227,7 @@ export default function AssignmentsSection({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const data = await apiRequest<ParentChildAssignments[]>(
       `${apiBaseUrl}/api/my-assignments`,
       token
@@ -235,7 +235,7 @@ export default function AssignmentsSection({
 
     setParentChildren(Array.isArray(data) ? data : []);
 
-  };
+  }, [apiBaseUrl, token]);
 
   useEffect(() => {
     const run = async () => {
@@ -253,7 +253,7 @@ export default function AssignmentsSection({
     };
 
     run();
-  }, [apiBaseUrl, token]);
+  }, [refresh]);
 
   const allSubmissions = useMemo(
     () => parentChildren.flatMap((child) => child.submissions || []),
