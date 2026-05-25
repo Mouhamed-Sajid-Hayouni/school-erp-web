@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiGet } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -146,7 +146,7 @@ export default function OverviewPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchOverview = async () => {
+  const fetchOverview = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -172,11 +172,11 @@ export default function OverviewPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl, token, showToast]);
 
   useEffect(() => {
     fetchOverview();
-  }, []);
+  }, [fetchOverview]);
 
   const recentUsers = useMemo(() => {
     return [...users]
