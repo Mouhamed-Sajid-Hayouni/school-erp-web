@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiGet } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -224,7 +224,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
     return params.toString();
   }, [action, entity, actorRole, page, limit]);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -251,11 +251,11 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl, token, queryString, page]);
 
   useEffect(() => {
     fetchLogs();
-  }, [queryString]);
+  }, [fetchLogs]);
 
   const resetToFirstPage = () => {
     setPage(1);
