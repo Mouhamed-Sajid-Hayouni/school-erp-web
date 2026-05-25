@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiDelete, apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -50,7 +50,7 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchClasses = async () => {
+  const fetchClasses = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -65,11 +65,11 @@ export default function ClassesPage({ apiBaseUrl, token }: ClassesPageProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl, token, showToast]);
 
   useEffect(() => {
     fetchClasses();
-  }, []);
+  }, [fetchClasses]);
 
   const filteredClasses = useMemo(() => {
     const value = searchTerm.trim().toLowerCase();
