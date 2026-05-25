@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type NotificationItem = {
   id: string;
@@ -141,14 +141,14 @@ export default function NotificationsSection({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const data = await apiRequest<NotificationItem[]>(
       `${apiBaseUrl}/api/my-notifications`,
       token
     );
 
     setNotifications(data);
-  };
+  }, [apiBaseUrl, token]);
 
   useEffect(() => {
     const run = async () => {
@@ -167,7 +167,7 @@ export default function NotificationsSection({
     };
 
     run();
-  }, [apiBaseUrl, token]);
+  }, [refresh]);
 
   const stats = useMemo(() => {
     const total = notifications.length;
