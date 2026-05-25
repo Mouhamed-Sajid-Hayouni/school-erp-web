@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useToast } from "../../components/common/ToastProvider";
 import { apiGet } from "../../lib/api";
 
@@ -199,7 +199,7 @@ export default function AssignmentsPage({
     [editingId]
   );
 
-  const fetchLookups = async () => {
+  const fetchLookups = useCallback(async () => {
     if (isTeacher) {
       const teacherOverview = await apiGet<TeacherOverviewResponse>(
         `${apiBaseUrl}/api/my-teacher-overview`,
@@ -239,9 +239,9 @@ export default function AssignmentsPage({
     setClasses(Array.isArray(classesData) ? classesData : []);
     setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
     setTeachers(Array.isArray(teachersData) ? teachersData : []);
-  };
+  }, [apiBaseUrl, token, isTeacher]);
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     if (isTeacher) {
       const json = await apiGet<TeacherOverviewResponse>(
         `${apiBaseUrl}/api/my-teacher-overview`,
@@ -269,7 +269,7 @@ export default function AssignmentsPage({
 
     const assignmentsData = await apiRequest<AssignmentItem[]>(url, token);
     setAssignments(Array.isArray(assignmentsData) ? assignmentsData : []);
-  };
+  }, [apiBaseUrl, token, isTeacher, filters.classId, filters.subjectId]);
 
   useEffect(() => {
     const run = async () => {
@@ -291,7 +291,7 @@ export default function AssignmentsPage({
     };
 
     run();
-  }, [apiBaseUrl, token]);
+  }, [fetchLookups, fetchAssignments, showToast]);
 
   useEffect(() => {
     if (isTeacher) return;
@@ -310,7 +310,7 @@ export default function AssignmentsPage({
     };
 
     run();
-  }, [filters.classId, filters.subjectId, isTeacher]);
+  }, [filters.classId, filters.subjectId, isTeacher, fetchAssignments, showToast]);
 
   const resetForm = () => {
     setForm({
