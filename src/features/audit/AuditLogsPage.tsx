@@ -146,8 +146,70 @@ const roleLabels: Record<string, string> = {
   PARENT: "ولي",
 };
 
+const auditActionWordLabels: Record<string, string> = {
+  CREATE: "إنشاء",
+  UPDATE: "تعديل",
+  DELETE: "حذف",
+  LOGIN: "تسجيل دخول",
+  LOGOUT: "تسجيل خروج",
+  APPROVE: "قبول",
+  REJECT: "رفض",
+  REQUEST: "طلب",
+  RESET: "إعادة تعيين",
+  SEND: "إرسال",
+  SUBMIT: "تسليم",
+  SAVE: "حفظ",
+  NOTIFY: "إشعار",
+  PUBLISH: "نشر",
+  EXPORT: "تصدير",
+  IMPORT: "استيراد",
+  VIEW: "عرض",
+  OPEN: "فتح",
+  CLOSE: "غلق",
+  USER: "مستخدم",
+  USERS: "مستخدمين",
+  TEACHER: "معلّم",
+  PARENT: "ولي",
+  STUDENT: "تلميذ",
+  CLASS: "قسم",
+  CLASSES: "أقسام",
+  SUBJECT: "مادة",
+  SUBJECTS: "مواد",
+  SCHEDULE: "جدول",
+  SCHEDULES: "جداول",
+  ASSIGNMENT: "واجب",
+  ASSIGNMENTS: "واجبات",
+  GRADE: "عدد",
+  GRADES: "أعداد",
+  ATTENDANCE: "حضور",
+  ABSENCE: "غياب",
+  ANNOUNCEMENT: "إعلان",
+  ANNOUNCEMENTS: "إعلانات",
+  MESSAGE: "رسالة",
+  MESSAGES: "رسائل",
+  SETTINGS: "إعدادات",
+  SCHOOL: "مدرسة",
+  PROFILE: "ملف",
+  PASSWORD: "كلمة مرور",
+  IMAGE: "صورة",
+  BULLETIN: "بطاقة أعداد",
+  REPORT: "تقرير",
+  REPORTS: "تقارير",
+  ACCOUNT: "حساب",
+};
+
+function formatUnknownAction(action: string) {
+  const translated = action
+    .split("_")
+    .map((part) => auditActionWordLabels[part] ?? "")
+    .filter(Boolean)
+    .join(" ");
+
+  return translated || "إجراء نظام";
+}
+
 function formatAction(action: string) {
-  return actionLabels[action] ?? action.replaceAll("_", " ");
+  return actionLabels[action] ?? formatUnknownAction(action);
 }
 
 function formatEntity(entity: string) {
