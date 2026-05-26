@@ -85,6 +85,69 @@ const entityLabels: Record<string, string> = {
   SchoolSettings: "إعدادات المدرسة",
 };
 
+
+const auditActionWordLabels: Record<string, string> = {
+  CREATE: "إنشاء",
+  UPDATE: "تعديل",
+  DELETE: "حذف",
+  LOGIN: "تسجيل دخول",
+  LOGOUT: "تسجيل خروج",
+  APPROVE: "قبول",
+  REJECT: "رفض",
+  REQUEST: "طلب",
+  RESET: "إعادة تعيين",
+  SEND: "إرسال",
+  SUBMIT: "تسليم",
+  SAVE: "حفظ",
+  NOTIFY: "إشعار",
+  PUBLISH: "نشر",
+  EXPORT: "تصدير",
+  IMPORT: "استيراد",
+  VIEW: "عرض",
+  OPEN: "فتح",
+  CLOSE: "غلق",
+  USER: "مستخدم",
+  USERS: "مستخدمين",
+  TEACHER: "معلّم",
+  PARENT: "ولي",
+  STUDENT: "تلميذ",
+  CLASS: "قسم",
+  CLASSES: "أقسام",
+  SUBJECT: "مادة",
+  SUBJECTS: "مواد",
+  SCHEDULE: "جدول",
+  SCHEDULES: "جداول",
+  ASSIGNMENT: "واجب",
+  ASSIGNMENTS: "واجبات",
+  GRADE: "عدد",
+  GRADES: "أعداد",
+  ATTENDANCE: "حضور",
+  ABSENCE: "غياب",
+  ANNOUNCEMENT: "إعلان",
+  ANNOUNCEMENTS: "إعلانات",
+  MESSAGE: "رسالة",
+  MESSAGES: "رسائل",
+  SETTINGS: "إعدادات",
+  SCHOOL: "مدرسة",
+  PROFILE: "ملف",
+  PASSWORD: "كلمة مرور",
+  IMAGE: "صورة",
+  BULLETIN: "بطاقة أعداد",
+  REPORT: "تقرير",
+  REPORTS: "تقارير",
+  ACCOUNT: "حساب",
+};
+
+function formatUnknownAuditAction(action: string) {
+  const translated = action
+    .split("_")
+    .map((part) => auditActionWordLabels[part] ?? "")
+    .filter(Boolean)
+    .join(" ");
+
+  return translated || "إجراء نظام";
+}
+
 function translateAuditAction(action: string) {
   const normalized = action.toUpperCase();
 
@@ -119,7 +182,7 @@ function translateAuditAction(action: string) {
   if (normalized === "CREATE_ANNOUNCEMENT") return "نشر إعلان";
   if (normalized === "UPDATE_SCHOOL_SETTINGS") return "تحديث إعدادات المدرسة";
 
-  return action.replaceAll("_", " ");
+  return formatUnknownAuditAction(action);
 }
 
 function formatDate(value?: string) {
