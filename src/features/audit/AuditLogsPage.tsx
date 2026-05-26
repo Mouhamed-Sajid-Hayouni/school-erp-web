@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiGet } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -383,7 +383,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
                 <th class="date-col">التاريخ</th>
                 <th class="actor-col">المستخدم</th>
                 <th class="role-col">الدور</th>
-                <th class="action-col">الإجراء</th>
+                <th class="action-col">الإجراءات</th>
                 <th class="entity-col">العنصر</th>
                 <th class="entity-id-col">معرّف العنصر</th>
                 <th class="ip-col">عنوان IP</th>
@@ -479,7 +479,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
         <div className="grid gap-4 md:grid-cols-6">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              الإجراء
+              الإجراءات
             </label>
             <select
               value={action}
@@ -586,7 +586,7 @@ export default function AuditLogsPage({ apiBaseUrl, token }: AuditLogsPageProps)
                   <th className="px-4 py-3">التاريخ</th>
                   <th className="px-4 py-3">المستخدم</th>
                   <th className="px-4 py-3">الدور</th>
-                  <th className="px-4 py-3">الإجراء</th>
+                  <th className="px-4 py-3">الإجراءات</th>
                   <th className="px-4 py-3">العنصر</th>
                   <th className="px-4 py-3">التفاصيل</th>
                 </tr>
