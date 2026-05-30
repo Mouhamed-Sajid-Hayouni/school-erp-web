@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import MyPortalPage from "./features/portal/MyPortalPage";
 import UsersPage from "./features/users/UsersPage";
@@ -15,6 +15,7 @@ import ReportsPage from "./features/reports/ReportsPage";
 import MessagesPage from "./features/messages/MessagesPage";
 import SchoolSettingsPage from "./features/settings/SchoolSettingsPage";
 import AuditLogsPage from "./features/audit/AuditLogsPage";
+import TeacherAbsencesPage from "./features/teacher-absences/TeacherAbsencesPage";
 
 type TabKey =
   | "overview"
@@ -24,6 +25,7 @@ type TabKey =
   | "subjects"
   | "schedules"
   | "attendance"
+  | "teacherAbsences"
   | "grades"
   | "assignments"
   | "announcements"
@@ -170,6 +172,12 @@ useEffect(() => {
 
       
 
+      case "teacherAbsences":
+        return isAdmin ? (
+          <TeacherAbsencesPage apiBaseUrl={API_BASE_URL} token={token} />
+        ) : (
+          renderOverview()
+        );
       case "grades":
         return isTeacher ? (
           <GradesPage apiBaseUrl={API_BASE_URL} token={token} />

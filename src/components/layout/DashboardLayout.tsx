@@ -26,6 +26,7 @@ type TabKey =
   | "subjects"
   | "schedules"
   | "attendance"
+  | "teacherAbsences"
   | "grades"
   | "assignments"
   | "announcements"
@@ -48,66 +49,71 @@ type DashboardLayoutProps = {
 };
 
 const roleLabels: Record<string, string> = {
-  ADMIN: "مدير النظام",
-  TEACHER: "معلّم",
-  PARENT: "ولي",
-  STUDENT: "تلميذ - بدون دخول مباشر",
+  ADMIN: "Ù…Ø¯ÙŠØ± Ø§Ù„Ù†Ø¸Ø§Ù…",
+  TEACHER: "Ù…Ø¹Ù„Ù‘Ù…",
+  PARENT: "ÙˆÙ„ÙŠ",
+  STUDENT: "ØªÙ„Ù…ÙŠØ° - Ø¨Ø¯ÙˆÙ† Ø¯Ø®ÙˆÙ„ Ù…Ø¨Ø§Ø´Ø±",
 };
 
 const adminTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
   {
     key: "overview",
-    label: "لوحة القيادة",
+    label: "Ù„ÙˆØ­Ø© Ø§Ù„Ù‚ÙŠØ§Ø¯Ø©",
     icon: <LayoutDashboard className="h-4 w-4" />,
   },
   {
     key: "users",
-    label: "المستخدمون",
+    label: "Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙˆÙ†",
     icon: <Users className="h-4 w-4" />,
   },
   {
     key: "classes",
-    label: "الأقسام",
+    label: "Ø§Ù„Ø£Ù‚Ø³Ø§Ù…",
     icon: <Shield className="h-4 w-4" />,
   },
   {
     key: "subjects",
-    label: "المواد",
+    label: "Ø§Ù„Ù…ÙˆØ§Ø¯",
     icon: <BookOpen className="h-4 w-4" />,
   },
   {
     key: "schedules",
-    label: "جداول الأوقات",
+    label: "Ø¬Ø¯Ø§ÙˆÙ„ Ø§Ù„Ø£ÙˆÙ‚Ø§Øª",
     icon: <CalendarDays className="h-4 w-4" />,
   },
   {
     key: "assignments",
-    label: "الواجبات",
+    label: "Ø§Ù„ÙˆØ§Ø¬Ø¨Ø§Øª",
     icon: <FileText className="h-4 w-4" />,
   },
   {
     key: "announcements",
-    label: "الإعلانات",
+    label: "Ø§Ù„Ø¥Ø¹Ù„Ø§Ù†Ø§Øª",
     icon: <Megaphone className="h-4 w-4" />,
   },
   {
     key: "messages",
-    label: "الرسائل",
+    label: "Ø§Ù„Ø±Ø³Ø§Ø¦Ù„",
     icon: <MessageCircle className="h-4 w-4" />,
   },
   {
+    key: "teacherAbsences",
+    label: "غيابات المدرسين",
+    icon: <ClipboardCheck className="h-4 w-4" />,
+  },
+  {
     key: "reports",
-    label: "التقارير",
+    label: "Ø§Ù„ØªÙ‚Ø§Ø±ÙŠØ±",
     icon: <BarChart3 className="h-4 w-4" />,
   },
   {
     key: "auditLogs",
-    label: "سجل العمليات",
+    label: "Ø³Ø¬Ù„ Ø§Ù„Ø¹Ù…Ù„ÙŠØ§Øª",
     icon: <ScrollText className="h-4 w-4" />,
   },
   {
     key: "settings",
-    label: "الإعدادات",
+    label: "Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª",
     icon: <Settings className="h-4 w-4" />,
   },
 ];
@@ -115,37 +121,37 @@ const adminTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
 const teacherTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
   {
     key: "overview",
-    label: "لوحة القيادة",
+    label: "Ù„ÙˆØ­Ø© Ø§Ù„Ù‚ÙŠØ§Ø¯Ø©",
     icon: <LayoutDashboard className="h-4 w-4" />,
   },
   {
     key: "schedules",
-    label: "جدول أوقاتي",
+    label: "Ø¬Ø¯ÙˆÙ„ Ø£ÙˆÙ‚Ø§ØªÙŠ",
     icon: <CalendarDays className="h-4 w-4" />,
   },
   {
     key: "attendance",
-    label: "الحضور والغياب",
+    label: "Ø§Ù„Ø­Ø¶ÙˆØ± ÙˆØ§Ù„ØºÙŠØ§Ø¨",
     icon: <ClipboardCheck className="h-4 w-4" />,
   },
   {
     key: "grades",
-    label: "الأعداد",
+    label: "Ø§Ù„Ø£Ø¹Ø¯Ø§Ø¯",
     icon: <GraduationCap className="h-4 w-4" />,
   },
   {
     key: "assignments",
-    label: "الواجبات",
+    label: "Ø§Ù„ÙˆØ§Ø¬Ø¨Ø§Øª",
     icon: <FileText className="h-4 w-4" />,
   },
   {
     key: "announcements",
-    label: "الإعلانات",
+    label: "Ø§Ù„Ø¥Ø¹Ù„Ø§Ù†Ø§Øª",
     icon: <Megaphone className="h-4 w-4" />,
   },
   {
     key: "messages",
-    label: "الرسائل",
+    label: "Ø§Ù„Ø±Ø³Ø§Ø¦Ù„",
     icon: <MessageCircle className="h-4 w-4" />,
   },
 ];
@@ -153,23 +159,23 @@ const teacherTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
 const studentParentTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
   {
     key: "portal",
-    label: "البوابة",
+    label: "Ø§Ù„Ø¨ÙˆØ§Ø¨Ø©",
     icon: <User className="h-4 w-4" />,
   },
   {
     key: "messages",
-    label: "الرسائل",
+    label: "Ø§Ù„Ø±Ø³Ø§Ø¦Ù„",
     icon: <MessageCircle className="h-4 w-4" />,
   },
 ];
 
 function normalizeSchoolName(value?: string) {
-  if (!value || value === "School ERP") return "نظام إدارة المدرسة";
+  if (!value || value === "School ERP") return "Ù†Ø¸Ø§Ù… Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø¯Ø±Ø³Ø©";
   return value;
 }
 
 function normalizeSchoolSubtitle(value?: string) {
-  if (!value || value === "Tunisian Public School") return "مدرسة عمومية تونسية";
+  if (!value || value === "Tunisian Public School") return "Ù…Ø¯Ø±Ø³Ø© Ø¹Ù…ÙˆÙ…ÙŠØ© ØªÙˆÙ†Ø³ÙŠØ©";
   return value;
 }
 
@@ -195,7 +201,7 @@ export default function DashboardLayout({
       .filter(Boolean)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("") || "؟";
+      .join("") || "ØŸ";
 
   const visibleTabs =
     role === "ADMIN"
@@ -210,8 +216,8 @@ export default function DashboardLayout({
       : `${apiBaseUrl}${profileImage}`
     : "";
 
-  const [schoolName, setSchoolName] = useState("نظام إدارة المدرسة");
-  const [schoolSubtitle, setSchoolSubtitle] = useState("مدرسة عمومية تونسية");
+  const [schoolName, setSchoolName] = useState("Ù†Ø¸Ø§Ù… Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø¯Ø±Ø³Ø©");
+  const [schoolSubtitle, setSchoolSubtitle] = useState("Ù…Ø¯Ø±Ø³Ø© Ø¹Ù…ÙˆÙ…ÙŠØ© ØªÙˆÙ†Ø³ÙŠØ©");
 
   useEffect(() => {
     async function loadSchoolSettings() {
@@ -292,8 +298,8 @@ export default function DashboardLayout({
             <div className="space-y-2">
               {isStudentBlocked ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                  حسابات التلاميذ لا تستعمل الدخول المباشر إلى النظام.
-                  الرجاء استعمال حساب الولي.
+                  Ø­Ø³Ø§Ø¨Ø§Øª Ø§Ù„ØªÙ„Ø§Ù…ÙŠØ° Ù„Ø§ ØªØ³ØªØ¹Ù…Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ø§Ù„Ù…Ø¨Ø§Ø´Ø± Ø¥Ù„Ù‰ Ø§Ù„Ù†Ø¸Ø§Ù….
+                  Ø§Ù„Ø±Ø¬Ø§Ø¡ Ø§Ø³ØªØ¹Ù…Ø§Ù„ Ø­Ø³Ø§Ø¨ Ø§Ù„ÙˆÙ„ÙŠ.
                 </div>
               ) : isParentPortal ? (
                 <>
@@ -306,7 +312,7 @@ export default function DashboardLayout({
                     }`}
                   >
                     <User className="h-4 w-4" />
-                    بوابة الولي
+                    Ø¨ÙˆØ§Ø¨Ø© Ø§Ù„ÙˆÙ„ÙŠ
                   </button>
 
                   <button
@@ -318,7 +324,7 @@ export default function DashboardLayout({
                     }`}
                   >
                     <MessageCircle className="h-4 w-4" />
-                    الرسائل
+                    Ø§Ù„Ø±Ø³Ø§Ø¦Ù„
                   </button>
                 </>
               ) : (
@@ -346,7 +352,7 @@ export default function DashboardLayout({
               className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
             >
               <LogOut className="h-4 w-4" />
-              تسجيل الخروج
+              ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø®Ø±ÙˆØ¬
             </button>
           </div>
         </aside>
