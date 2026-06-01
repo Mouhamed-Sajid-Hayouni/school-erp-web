@@ -195,6 +195,12 @@ function formatDateTime(value?: string) {
   return new Date(value).toLocaleString("ar-TN");
 }
 
+
+function truncateLongText(value: string, maxLength = 34) {
+  const safeValue = value.trim();
+  return safeValue.length > maxLength ? `${safeValue.slice(0, maxLength)}...` : safeValue;
+}
+
 export default function OverviewPage({
   apiBaseUrl,
   token,
@@ -364,7 +370,7 @@ export default function OverviewPage({
                     </span>
                   </div>
                   <p className="mt-1 text-left text-sm text-slate-500" dir="ltr">
-                    {user.email}
+                    {truncateLongText(user.email)}
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
                     {formatDate(user.createdAt)}

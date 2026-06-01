@@ -97,6 +97,12 @@ function getProfileImageUrl(apiBaseUrl: string, profileImage: string | null) {
   return `${apiBaseUrl}${normalizedPath}`;
 }
 
+
+function truncateLongText(value: string, maxLength = 34) {
+  const safeValue = value.trim();
+  return safeValue.length > maxLength ? `${safeValue.slice(0, maxLength)}...` : safeValue;
+}
+
 function UserAvatar({
   apiBaseUrl,
   user,
@@ -361,7 +367,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                   <div className="space-y-1 text-sm text-slate-600">
                     <p>
                       <span className="font-medium">{pendingRequestText.email}: </span>
-                      <span dir="ltr">{request.email}</span>
+                      <span dir="ltr" className="block text-left leading-relaxed" style={{ width: "260px", maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={request.email}>{truncateLongText(request.email)}</span>
                     </p>
                     {request.phone ? (
                       <p>
@@ -457,7 +463,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                     </td>
 
                     <td className="px-3 py-3 text-left text-sm text-slate-600" dir="ltr">
-                      {user.role === "STUDENT" ? "\u0628\u062f\u0648\u0646 \u0628\u0631\u064a\u062f \u062f\u062e\u0648\u0644" : user.email}
+                      <span dir={user.role === "STUDENT" ? "rtl" : "ltr"} className="block text-left leading-relaxed" style={{ width: "260px", maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={user.role === "STUDENT" ? undefined : user.email}>{user.role === "STUDENT" ? "\u0628\u062f\u0648\u0646 \u0628\u0631\u064a\u062f \u062f\u062e\u0648\u0644" : truncateLongText(user.email)}</span>
                     </td>
 
                     <td className="px-3 py-3">
