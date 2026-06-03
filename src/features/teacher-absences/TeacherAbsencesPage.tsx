@@ -130,6 +130,11 @@ export default function TeacherAbsencesPage({
     }
   };
 
+  const justifiedAbsencesCount = absences.filter(
+    (absence) => absence.status === "JUSTIFIED"
+  ).length;
+  const unjustifiedAbsencesCount = absences.length - justifiedAbsencesCount;
+
   return (
     <div className="space-y-6" dir="rtl">
       <div>
@@ -137,6 +142,26 @@ export default function TeacherAbsencesPage({
         <p className="mt-2 text-sm text-slate-600">
           تسجيل ومتابعة غيابات المدرسين من طرف الإدارة.
         </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium text-slate-500">ملخص غيابات المدرسين</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{absences.length}</p>
+          <p className="mt-1 text-xs text-slate-500">إجمالي الغيابات المسجلة</p>
+        </div>
+
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium text-slate-500">الغيابات المبررة</p>
+          <p className="mt-2 text-2xl font-bold text-emerald-700">{justifiedAbsencesCount}</p>
+          <p className="mt-1 text-xs text-slate-500">حالات لها سبب أو تبرير</p>
+        </div>
+
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium text-slate-500">الغيابات غير المبررة</p>
+          <p className="mt-2 text-2xl font-bold text-amber-700">{unjustifiedAbsencesCount}</p>
+          <p className="mt-1 text-xs text-slate-500">حالات تحتاج متابعة إدارية</p>
+        </div>
       </div>
 
       {error && (
