@@ -11,20 +11,31 @@ type ClassRow = {
   academicYear: string;
 };
 
+type UserSummary = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  role: string;
+  isActive?: boolean;
+};
+
+type ParentRow = {
+  id: string;
+  user: UserSummary;
+};
+
 type StudentRow = {
   id: string;
   dateOfBirth: string;
   enrollmentDate: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    phone?: string | null;
-    role: string;
-    isActive: boolean;
-  };
+  user: UserSummary;
   class?: ClassRow | null;
+  parent?: ParentRow | null;
+  parentLinks?: Array<{
+    parent: ParentRow;
+  }>;
 };
 
 type StudentsPageProps = {
@@ -45,6 +56,14 @@ function translateError(message: string) {
 
   if (normalized.includes("class not found")) {
     return "القسم المختار غير موجود.";
+  }
+
+  if (normalized.includes("parent not found")) {
+    return "الولي المختار غير موجود.";
+  }
+
+  if (normalized.includes("parent account must be active")) {
+    return "يجب أن يكون حساب الولي مفعلا.";
   }
 
   if (normalized.includes("unauthorized") || normalized.includes("invalid token")) {
@@ -74,10 +93,20 @@ function getVisibleStudentEmail(email?: string | null) {
   return email;
 }
 
+function getFullName(user?: UserSummary | null) {
+  if (!user) return "غير محدد";
+  return [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+}
+
+function getPrimaryParent(student: StudentRow) {
+  return student.parent ?? student.parentLinks?.[0]?.parent ?? null;
+}
+
 export default function StudentsPage({ apiBaseUrl, token }: StudentsPageProps) {
   const { showToast } = useToast();
 
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [parents, setParents] = useState<ParentRow[]>([]);
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -91,20 +120,37 @@ export default function StudentsPage({ apiBaseUrl, token }: StudentsPageProps) {
   });
 
   const [creating, setCreating] = useState(false);
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [selectedParents, setSelectedParents] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState("");
+
+  const syncSelectedParents = useCallback((rows: StudentRow[]) => {
+    const next: Record<string, string> = {};
+
+    rows.forEach((student) => {
+      next[student.id] = getPrimaryParent(student)?.id ?? "";
+    });
+
+    setSelectedParents(next);
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
-      const [studentsJson, classesJson] = await Promise.all([
+      const [studentsJson, classesJson, parentsJson] = await Promise.all([
         apiGet<StudentRow[]>(`${apiBaseUrl}/api/students`, token),
         apiGet<ClassRow[]>(`${apiBaseUrl}/api/classes`, token),
+        apiGet<ParentRow[]>(`${apiBaseUrl}/api/parents`, token),
       ]);
 
-      setStudents(Array.isArray(studentsJson) ? studentsJson : []);
+      const nextStudents = Array.isArray(studentsJson) ? studentsJson : [];
+
+      setStudents(nextStudents);
       setClasses(Array.isArray(classesJson) ? classesJson : []);
+      setParents(Array.isArray(parentsJson) ? parentsJson : []);
+      syncSelectedParents(nextStudents);
     } catch (err) {
       const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
       const translated = translateError(message);
@@ -113,7 +159,7 @@ export default function StudentsPage({ apiBaseUrl, token }: StudentsPageProps) {
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl, token, showToast]);
+  }, [apiBaseUrl, token, showToast, syncSelectedParents]);
 
   useEffect(() => {
     fetchData();
@@ -125,10 +171,11 @@ export default function StudentsPage({ apiBaseUrl, token }: StudentsPageProps) {
     return students.filter((student) => {
       const fullName = `${student.user.firstName} ${student.user.lastName}`.toLowerCase();
       const className = student.class?.name?.toLowerCase() ?? "";
+      const parentName = getFullName(getPrimaryParent(student)?.user).toLowerCase();
 
       if (!value) return true;
 
-      return fullName.includes(value) || className.includes(value);
+      return fullName.includes(value) || className.includes(value) || parentName.includes(value);
     });
   }, [students, searchTerm]);
 
@@ -174,6 +221,7 @@ export default function StudentsPage({ apiBaseUrl, token }: StudentsPageProps) {
       });
 
       setStudents((prev) => [created, ...prev]);
+      setSelectedParents((prev) => ({ ...prev, [created.id]: "" }));
       setForm({
         firstName: "",
         lastName: "",
@@ -190,6 +238,54 @@ export default function StudentsPage({ apiBaseUrl, token }: StudentsPageProps) {
       showToast(translated, "error");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleParentSelection = (studentId: string, parentId: string) => {
+    setSelectedParents((prev) => ({ ...prev, [studentId]: parentId }));
+  };
+
+  const handleSaveParent = async (studentId: string) => {
+    try {
+      setLinkingId(studentId);
+      setError("");
+
+      const response = await fetch(`${apiBaseUrl}/api/students/${studentId}/parent`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          parentId: selectedParents[studentId] || null,
+        }),
+      });
+
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(json?.error || `Request failed with status ${response.status}`);
+      }
+
+      const updatedStudent = json as StudentRow;
+
+      setStudents((prev) =>
+        prev.map((student) => (student.id === studentId ? updatedStudent : student))
+      );
+
+      setSelectedParents((prev) => ({
+        ...prev,
+        [studentId]: getPrimaryParent(updatedStudent)?.id ?? "",
+      }));
+
+      showToast("تم ربط التلميذ بالولي بنجاح.", "success");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
+    } finally {
+      setLinkingId(null);
     }
   };
 
@@ -298,7 +394,7 @@ export default function StudentsPage({ apiBaseUrl, token }: StudentsPageProps) {
           <div className="flex flex-col gap-3 md:flex-row">
             <input
               type="text"
-              placeholder="البحث بالاسم أو القسم..."
+              placeholder="البحث بالاسم أو القسم أو الولي..."
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
@@ -316,36 +412,68 @@ export default function StudentsPage({ apiBaseUrl, token }: StudentsPageProps) {
         {filteredStudents.length === 0 ? (
           <EmptyState title="لا توجد ملفات تلاميذ" description="يمكن للإدارة إضافة ملف تلميذ جديد من النموذج أعلاه." />
         ) : (
-          <div className="overflow-hidden rounded-xl border">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full min-w-[980px] text-sm">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
                   <th className="px-4 py-3 text-right">التلميذ</th>
                   <th className="px-4 py-3 text-right">القسم</th>
                   <th className="px-4 py-3 text-right">تاريخ الولادة</th>
+                  <th className="px-4 py-3 text-right">الولي</th>
                   <th className="px-4 py-3 text-right">الحساب</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredStudents.map((student) => (
-                  <tr key={student.id} className="border-t">
-                    <td className="px-4 py-3">
-                      <p className="font-medium">
-                        {student.user.firstName} {student.user.lastName}
-                      </p>
-                      <p className="text-xs text-slate-500">{student.user.phone || "لا يوجد هاتف"}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      {student.class ? `${student.class.name} - ${student.class.academicYear}` : "غير مرتبط بقسم"}
-                    </td>
-                    <td className="px-4 py-3">{formatDate(student.dateOfBirth)}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
-                        {getVisibleStudentEmail(student.user.email)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {filteredStudents.map((student) => {
+                  const currentParent = getPrimaryParent(student);
+                  const selectedParentId = selectedParents[student.id] ?? currentParent?.id ?? "";
+                  const parentChanged = selectedParentId !== (currentParent?.id ?? "");
+
+                  return (
+                    <tr key={student.id} className="border-t">
+                      <td className="px-4 py-3">
+                        <p className="font-medium">
+                          {student.user.firstName} {student.user.lastName}
+                        </p>
+                        <p className="text-xs text-slate-500">{student.user.phone || "لا يوجد هاتف"}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {student.class ? `${student.class.name} - ${student.class.academicYear}` : "غير مرتبط بقسم"}
+                      </td>
+                      <td className="px-4 py-3">{formatDate(student.dateOfBirth)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex min-w-[260px] gap-2">
+                          <select
+                            value={selectedParentId}
+                            onChange={(event) => handleParentSelection(student.id, event.target.value)}
+                            className="min-w-0 flex-1 rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                          >
+                            <option value="">دون ولي مرتبط</option>
+                            {parents.map((parent) => (
+                              <option key={parent.id} value={parent.id}>
+                                {getFullName(parent.user)} - {parent.user.email}
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            disabled={linkingId === student.id || !parentChanged}
+                            onClick={() => handleSaveParent(student.id)}
+                            className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                          >
+                            {linkingId === student.id ? "..." : "حفظ"}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
+                          {getVisibleStudentEmail(student.user.email)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
