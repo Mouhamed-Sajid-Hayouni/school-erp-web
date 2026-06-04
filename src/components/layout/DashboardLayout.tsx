@@ -1,19 +1,20 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  LogOut,
-  Shield,
-  User,
-  Users,
+  BarChart3,
   BookOpen,
   CalendarDays,
   ClipboardCheck,
-  LayoutDashboard,
   FileText,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
   Megaphone,
-  BarChart3,
   MessageCircle,
-  Settings,
   ScrollText,
+  Settings,
+  Shield,
+  User,
+  Users
 } from "lucide-react";
 import NotificationsBell from "../common/NotificationsBell";
 
