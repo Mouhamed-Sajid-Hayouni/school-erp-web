@@ -39,7 +39,7 @@ It supports:
 - Admin approves or rejects pending parent/teacher account requests
 - Direct user create/edit/delete/password/profile-image actions stay blocked
 - Forgot-password requests generate a secure self-service reset link from the login page
-- Password-reset requests show a generic message and direct users to contact school administration
+- Password-reset requests show a generic message and allow users to set a new password through a secure reset link
 - Admin creates and deletes classes
 - Admin creates and deletes subjects
 - Admin creates, edits, and deletes schedules
