@@ -22,6 +22,7 @@ type TabKey =
   | "overview"
   | "portal"
   | "users"
+  | "students"
   | "classes"
   | "subjects"
   | "schedules"
@@ -65,6 +66,11 @@ const adminTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
     key: "users",
     label: "المستخدمون",
     icon: <Users className="h-4 w-4" />,
+  },
+  {
+    key: "students",
+    label: "التلاميذ",
+    icon: <GraduationCap className="h-4 w-4" />,
   },
   {
     key: "classes",
