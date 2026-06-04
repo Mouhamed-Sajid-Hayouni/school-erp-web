@@ -7,7 +7,6 @@ import {
   BookOpen,
   CalendarDays,
   ClipboardCheck,
-  GraduationCap,
   LayoutDashboard,
   FileText,
   Megaphone,
@@ -21,9 +20,7 @@ import NotificationsBell from "../common/NotificationsBell";
 type TabKey =
   | "overview"
   | "portal"
-  | "users"
-  | "students"
-  | "classes"
+  | "users"  | "classes"
   | "subjects"
   | "schedules"
   | "attendance"
@@ -66,11 +63,6 @@ const adminTabs: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
     key: "users",
     label: "المستخدمون",
     icon: <Users className="h-4 w-4" />,
-  },
-  {
-    key: "students",
-    label: "التلاميذ",
-    icon: <GraduationCap className="h-4 w-4" />,
   },
   {
     key: "classes",

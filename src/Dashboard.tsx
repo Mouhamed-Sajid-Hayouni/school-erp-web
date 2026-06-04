@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import MyPortalPage from "./features/portal/MyPortalPage";
 import UsersPage from "./features/users/UsersPage";
-import StudentsPage from "./features/students/StudentsPage";
 import ClassesPage from "./features/classes/ClassesPage";
 import SubjectsPage from "./features/subjects/SubjectsPage";
 import SchedulesPage from "./features/schedules/SchedulesPage";
@@ -147,13 +146,6 @@ useEffect(() => {
           renderOverview()
         );
 
-      case "students":
-        return isAdmin ? (
-          <StudentsPage apiBaseUrl={API_BASE_URL} token={token} />
-        ) : (
-          renderOverview()
-        );
-
       case "classes":
         return isAdmin ? (
           <ClassesPage apiBaseUrl={API_BASE_URL} token={token} />
@@ -178,7 +170,7 @@ useEffect(() => {
           renderOverview()
         );
 
-      
+
 
       case "teacherAbsences":
         return isAdmin ? (
@@ -193,7 +185,7 @@ useEffect(() => {
           renderOverview()
         );
 
-      
+
 
       case "assignments":
         return <AssignmentsPage apiBaseUrl={API_BASE_URL} token={token} />;
