@@ -38,7 +38,7 @@ It supports:
 - Admin consults users in read-only mode
 - Admin approves or rejects pending parent/teacher account requests
 - Direct user create/edit/delete/password/profile-image actions stay blocked
-- Forgot-password requests are submitted through a controlled login-page flow
+- Forgot-password requests generate a secure self-service reset link from the login page
 - Password-reset requests show a generic message and direct users to contact school administration
 - Admin creates and deletes classes
 - Admin creates and deletes subjects
