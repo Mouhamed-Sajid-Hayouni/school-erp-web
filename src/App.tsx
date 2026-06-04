@@ -41,7 +41,7 @@ function translateLoginError(message?: string) {
 }
 
 function LoginScreen() {
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -64,9 +64,29 @@ function LoginScreen() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
+  const [resettingPassword, setResettingPassword] = useState(false);
   const [requestingReset, setRequestingReset] = useState(false);
 
   const navigate = useNavigate();
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('resetToken');
+
+    if (tokenFromUrl) {
+      setResetToken(tokenFromUrl);
+      setResetError('');
+      setResetSuccess('');
+      setResetPassword('');
+      setResetConfirmPassword('');
+      setMode('reset');
+    }
+  }, []);
+
   const token = localStorage.getItem('token');
 
   if (token) {
@@ -105,11 +125,22 @@ function LoginScreen() {
     approvalNote: '\u064a\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u062d\u0633\u0627\u0628 \u0628\u0639\u062f \u0645\u0631\u0627\u062c\u0639\u0629 \u0648\u0645\u0648\u0627\u0641\u0642\u0629 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u062f\u0631\u0633\u0629.',
     forgotPassword: '\u0646\u0633\u064a\u062a \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631\u061f',
     forgotTitle: '\u0637\u0644\u0628 \u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631',
-    forgotDescription: '\u0623\u062f\u062e\u0644 \u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0627\u0644\u0645\u0631\u062a\u0628\u0637 \u0628\u062d\u0633\u0627\u0628 \u0625\u062f\u0627\u0631\u064a \u0623\u0648 \u0648\u0644\u064a \u0623\u0648 \u0645\u0639\u0644\u0651\u0645. \u0633\u062a\u062a\u0645 \u0645\u0631\u0627\u062c\u0639\u0629 \u0627\u0644\u0637\u0644\u0628 \u0645\u0646 \u0637\u0631\u0641 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u062f\u0631\u0633\u0629 \u0623\u0648 \u0627\u0644\u062f\u0639\u0645 \u0627\u0644\u062a\u0642\u0646\u064a.',
+    forgotDescription: '\u0623\u062f\u062e\u0644 \u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0627\u0644\u0645\u0631\u062a\u0628\u0637 \u0628\u062d\u0633\u0627\u0628 \u0625\u062f\u0627\u0631\u064a \u0623\u0648 \u0648\u0644\u064a \u0623\u0648 \u0645\u0639\u0644\u0651\u0645. \u0633\u064a\u062a\u0645 \u0625\u0646\u0634\u0627\u0621 \u0631\u0627\u0628\u0637 \u0622\u0645\u0646 \u0644\u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631.',
     sendResetRequest: '\u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0644\u0627\u0633\u062a\u0631\u062c\u0627\u0639',
     sendingReset: '\u062c\u0627\u0631\u064d \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628...',
-    resetRequestSent: '\u0625\u0646 \u0643\u0627\u0646 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064a\u062f \u0645\u0631\u062a\u0628\u0637\u064b\u0627 \u0628\u062d\u0633\u0627\u0628 \u0625\u062f\u0627\u0631\u064a \u0623\u0648 \u0648\u0644\u064a \u0623\u0648 \u0645\u0639\u0644\u0651\u0645 \u0645\u0641\u0639\u0651\u0644\u060c \u0641\u0642\u062f \u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631. \u064a\u0631\u062c\u0649 \u0627\u0644\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u062f\u0631\u0633\u0629 \u0623\u0648 \u0627\u0644\u062f\u0639\u0645 \u0627\u0644\u062a\u0642\u0646\u064a.',
+    resetRequestSent: '\u0625\u0646 \u0643\u0627\u0646 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064a\u062f \u0645\u0631\u062a\u0628\u0637\u064b\u0627 \u0628\u062d\u0633\u0627\u0628 \u0625\u062f\u0627\u0631\u064a \u0623\u0648 \u0648\u0644\u064a \u0623\u0648 \u0645\u0639\u0644\u0651\u0645 \u0645\u0641\u0639\u0651\u0644\u060c \u0641\u0633\u064a\u062a\u0645 \u0625\u0646\u0634\u0627\u0621 \u0631\u0627\u0628\u0637 \u0622\u0645\u0646 \u0644\u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631. \u0641\u064a \u0627\u0644\u0639\u0631\u0636 \u0627\u0644\u0645\u062d\u0644\u064a\u060c \u064a\u0638\u0647\u0631 \u0627\u0644\u0631\u0627\u0628\u0637 \u0641\u064a \u0633\u062c\u0644\u0627\u062a \u0627\u0644\u062e\u0627\u062f\u0645.',
     resetRequestError: '\u062a\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631.',
+    resetTitle: '\u062a\u0639\u064a\u064a\u0646 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u062c\u062f\u064a\u062f\u0629',
+    resetDescription: '\u0623\u062f\u062e\u0644 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u062c\u062f\u064a\u062f\u0629 \u0644\u0625\u062a\u0645\u0627\u0645 \u0639\u0645\u0644\u064a\u0629 \u0627\u0644\u0627\u0633\u062a\u0631\u062c\u0627\u0639.',
+    newPassword: '\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062c\u062f\u064a\u062f\u0629',
+    confirmPassword: '\u062a\u0623\u0643\u064a\u062f \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631',
+    saveNewPassword: '\u062d\u0641\u0638 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062c\u062f\u064a\u062f\u0629',
+    savingNewPassword: '\u062c\u0627\u0631\u064d \u062d\u0641\u0638 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631...',
+    resetPasswordSuccess: '\u062a\u0645 \u062a\u063a\u064a\u064a\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0628\u0646\u062c\u0627\u062d. \u064a\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644.',
+    resetPasswordError: '\u062a\u0639\u0630\u0631 \u062a\u063a\u064a\u064a\u0631 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631.',
+    passwordTooShort: '\u064a\u062c\u0628 \u0623\u0646 \u062a\u062d\u062a\u0648\u064a \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0639\u0644\u0649 6 \u0623\u062d\u0631\u0641 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644.',
+    passwordMismatch: '\u062a\u0623\u0643\u064a\u062f \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063a\u064a\u0631 \u0645\u0637\u0627\u0628\u0642.',
+    resetLinkInvalid: '\u0631\u0627\u0628\u0637 \u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u063a\u064a\u0631 \u0635\u0627\u0644\u062d \u0623\u0648 \u0645\u0646\u062a\u0647\u064a.',
     backToLogin: '\u0627\u0644\u0631\u062c\u0648\u0639 \u0625\u0644\u0649 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644',
   };
 
@@ -124,6 +155,67 @@ function LoginScreen() {
     if (normalized.includes('only parents and teachers')) return t.onlyParentsTeachers;
 
     return t.submitFailed;
+  };
+
+  const handlePasswordResetConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetSuccess('');
+
+    if (!resetToken) {
+      setResetError(t.resetLinkInvalid);
+      return;
+    }
+
+    if (!resetPassword || resetPassword.length < 6) {
+      setResetError(t.passwordTooShort);
+      return;
+    }
+
+    if (resetPassword !== resetConfirmPassword) {
+      setResetError(t.passwordMismatch);
+      return;
+    }
+
+    setResettingPassword(true);
+
+    try {
+      const response = await fetch(API_BASE_URL + '/api/password-reset/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: resetToken,
+          password: resetPassword,
+          confirmPassword: resetConfirmPassword,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const normalizedMessage = String(data.error || '').toLowerCase();
+        setResetError(
+          normalizedMessage.includes('invalid') || normalizedMessage.includes('expired')
+            ? t.resetLinkInvalid
+            : normalizedMessage.includes('confirmation')
+              ? t.passwordMismatch
+              : normalizedMessage.includes('6 characters')
+                ? t.passwordTooShort
+                : t.resetPasswordError
+        );
+        return;
+      }
+
+      setResetSuccess(t.resetPasswordSuccess);
+      setResetPassword('');
+      setResetConfirmPassword('');
+      setResetToken('');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch {
+      setResetError(t.connectionError);
+    } finally {
+      setResettingPassword(false);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -281,7 +373,7 @@ function LoginScreen() {
             {t.systemName}
           </h1>
           <p className="text-gray-500">
-            {mode === 'login' ? t.loginTitle : mode === 'register' ? t.registerTitle : t.forgotTitle}
+            {mode === 'login' ? t.loginTitle : mode === 'register' ? t.registerTitle : mode === 'forgot' ? t.forgotTitle : t.resetTitle}
           </p>
         </div>
 
@@ -425,6 +517,78 @@ function LoginScreen() {
                 setMode('login');
                 setForgotError('');
                 setForgotSuccess('');
+              }}
+              className="w-full text-center text-sm font-medium text-slate-600 hover:text-slate-900"
+            >
+              {t.backToLogin}
+            </button>
+          </form>
+        ) : mode === 'reset' ? (
+          <form onSubmit={handlePasswordResetConfirm} className="space-y-5">
+            <p className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              {t.resetDescription}
+            </p>
+
+            {resetError ? (
+              <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                {resetError}
+              </div>
+            ) : null}
+
+            {resetSuccess ? (
+              <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+                {resetSuccess}
+              </div>
+            ) : null}
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                {t.newPassword}
+              </label>
+              <input
+                type="password"
+                dir="ltr"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-left focus:ring-2 focus:ring-blue-500"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                minLength={6}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                {t.confirmPassword}
+              </label>
+              <input
+                type="password"
+                dir="ltr"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-left focus:ring-2 focus:ring-blue-500"
+                value={resetConfirmPassword}
+                onChange={(e) => setResetConfirmPassword(e.target.value)}
+                minLength={6}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={resettingPassword || Boolean(resetSuccess)}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {resettingPassword ? t.savingNewPassword : t.saveNewPassword}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setResetError('');
+                setResetSuccess('');
+                setResetPassword('');
+                setResetConfirmPassword('');
+                setResetToken('');
+                window.history.replaceState({}, document.title, window.location.pathname);
               }}
               className="w-full text-center text-sm font-medium text-slate-600 hover:text-slate-900"
             >
