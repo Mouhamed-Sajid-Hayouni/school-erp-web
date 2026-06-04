@@ -150,7 +150,7 @@ function UserAvatar({
 
 export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [, setClasses] = useState<ClassOption[]>([]);
+  const [classes, setClasses] = useState<ClassOption[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequestRow[]>([]);
 
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -192,6 +192,37 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       setPendingRequestsError(translateError(message));
     } finally {
       setLoadingPendingRequests(false);
+    }
+  }, [apiBaseUrl, token]);
+
+  const fetchChildEnrollmentRequests = useCallback(async () => {
+    try {
+      setLoadingChildEnrollmentRequests(true);
+      setChildEnrollmentRequestsError("");
+
+      const json = await apiGet<ChildEnrollmentRequestRow[]>(
+        `${apiBaseUrl}/api/child-enrollment-requests`,
+        token
+      );
+
+      const rows = Array.isArray(json) ? json : [];
+      setChildEnrollmentRequests(rows);
+      setSelectedChildRequestClasses((prev) => {
+        const next = { ...prev };
+
+        rows.forEach((request) => {
+          if (!next[request.id]) {
+            next[request.id] = "";
+          }
+        });
+
+        return next;
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      setChildEnrollmentRequestsError(translateError(message));
+    } finally {
+      setLoadingChildEnrollmentRequests(false);
     }
   }, [apiBaseUrl, token]);
 
@@ -268,6 +299,71 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
     }
   };
 
+  const handleApproveChildEnrollmentRequest = async (requestId: string) => {
+    const classId = selectedChildRequestClasses[requestId] ?? "";
+
+    if (!classId) {
+      setChildEnrollmentRequestsError("يرجى اختيار القسم قبل قبول طلب تسجيل الابن.");
+      return;
+    }
+
+    const confirmed = window.confirm("هل تريد قبول طلب تسجيل هذا الابن وإنشاء ملف تلميذ مرتبط بالولي؟");
+
+    if (!confirmed) return;
+
+    try {
+      setApprovingChildRequestId(requestId);
+      setChildEnrollmentRequestsError("");
+
+      await apiPost<ChildEnrollmentRequestRow, { classId: string; adminNote: string }>(
+        `${apiBaseUrl}/api/child-enrollment-requests/${requestId}/approve`,
+        token,
+        {
+          classId,
+          adminNote: childRequestAdminNotes[requestId] ?? "",
+        }
+      );
+
+      await fetchChildEnrollmentRequests();
+      await fetchUsers();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      setChildEnrollmentRequestsError(translateError(message));
+    } finally {
+      setApprovingChildRequestId(null);
+    }
+  };
+
+  const handleRejectChildEnrollmentRequest = async (requestId: string) => {
+    const confirmed = window.confirm("هل تريد رفض طلب تسجيل هذا الابن؟");
+
+    if (!confirmed) return;
+
+    try {
+      setRejectingChildRequestId(requestId);
+      setChildEnrollmentRequestsError("");
+
+      await apiPost<ChildEnrollmentRequestRow, { adminNote: string }>(
+        `${apiBaseUrl}/api/child-enrollment-requests/${requestId}/reject`,
+        token,
+        {
+          adminNote: childRequestAdminNotes[requestId] ?? "",
+        }
+      );
+
+      await fetchChildEnrollmentRequests();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      setChildEnrollmentRequestsError(translateError(message));
+    } finally {
+      setRejectingChildRequestId(null);
+    }
+  };
+
+  const pendingChildEnrollmentRequests = childEnrollmentRequests.filter(
+    (request) => request.status === "PENDING"
+  );
+
   const pendingRequestText = {
     requestsTitle: '\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u062d\u0633\u0627\u0628\u0627\u062a \u0627\u0644\u0645\u0639\u0644\u0651\u0642\u0629',
     requestsDescription: '\u062a\u0641\u0639\u064a\u0644 \u062d\u0633\u0627\u0628\u0627\u062a \u0627\u0644\u0623\u0648\u0644\u064a\u0627\u0621 \u0648\u0627\u0644\u0645\u0639\u0644\u0645\u064a\u0646 \u0628\u0639\u062f \u0627\u0644\u062a\u062b\u0628\u062a \u0645\u0646 \u0627\u0644\u0637\u0644\u0628. \u0644\u0627 \u064a\u062a\u0645 \u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628\u0627\u062a \u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u0644\u062a\u0644\u0627\u0645\u064a\u0630.',
@@ -308,6 +404,128 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
         هذه الصفحة للعرض فقط. إنشاء المستخدمين أو تعديلهم أو حذفهم معطّل من الخادم.
       </div>
 
+
+
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold">طلبات تسجيل الأبناء</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              مراجعة طلبات الأولياء، ثم قبول الطلب مع تعيين القسم أو رفضه.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={fetchChildEnrollmentRequests}
+            className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+          >
+            تحديث الطلبات
+          </button>
+        </div>
+
+        {loadingChildEnrollmentRequests ? (
+          <LoadingState message="جاري تحميل طلبات تسجيل الأبناء..." />
+        ) : childEnrollmentRequestsError ? (
+          <ErrorState message={childEnrollmentRequestsError} />
+        ) : pendingChildEnrollmentRequests.length === 0 ? (
+          <EmptyState message="لا توجد طلبات تسجيل أبناء معلّقة." />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {pendingChildEnrollmentRequests.map((request) => {
+              const isBusy =
+                approvingChildRequestId === request.id || rejectingChildRequestId === request.id;
+
+              return (
+                <article key={request.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {request.firstName} {request.lastName}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        الولي: {request.parent?.user?.firstName} {request.parent?.user?.lastName}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                      في انتظار المراجعة
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 text-sm text-slate-600">
+                    <p>
+                      <span className="font-medium">تاريخ الولادة: </span>
+                      {formatDate(request.dateOfBirth)}
+                    </p>
+                    <p>
+                      <span className="font-medium">المستوى المطلوب: </span>
+                      {request.requestedLevel || "غير محدد"}
+                    </p>
+                    <p>
+                      <span className="font-medium">ملاحظة الولي: </span>
+                      {request.note || "لا توجد ملاحظات."}
+                    </p>
+                    <p>
+                      <span className="font-medium">تاريخ الطلب: </span>
+                      {formatDate(request.createdAt)}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    <select
+                      value={selectedChildRequestClasses[request.id] ?? ""}
+                      onChange={(event) =>
+                        setSelectedChildRequestClasses((prev) => ({
+                          ...prev,
+                          [request.id]: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+                    >
+                      <option value="">اختر القسم عند القبول</option>
+                      {classes.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} - {item.academicYear}
+                        </option>
+                      ))}
+                    </select>
+
+                    <textarea
+                      value={childRequestAdminNotes[request.id] ?? ""}
+                      onChange={(event) =>
+                        setChildRequestAdminNotes((prev) => ({
+                          ...prev,
+                          [request.id]: event.target.value,
+                        }))
+                      }
+                      className="min-h-20 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-slate-400"
+                      placeholder="ملاحظة إدارية اختيارية"
+                    />
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveChildEnrollmentRequest(request.id)}
+                        disabled={isBusy}
+                        className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        {approvingChildRequestId === request.id ? "جاري القبول..." : "قبول وإنشاء ملف"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectChildEnrollmentRequest(request.id)}
+                        disabled={isBusy}
+                        className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                      >
+                        {rejectingChildRequestId === request.id ? "جاري الرفض..." : "رفض الطلب"}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-start justify-between gap-4">

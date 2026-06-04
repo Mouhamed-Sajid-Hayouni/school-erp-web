@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { apiGet } from "../../lib/api";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { apiGet, apiPost } from "../../lib/api";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import EmptyState from "../../components/common/EmptyState";
@@ -66,6 +66,29 @@ type ParentPortalResponse = {
   id: string;
   userId: string;
   children?: ChildPortalRecord[];
+};
+
+type ChildEnrollmentRequestRow = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  requestedLevel?: string | null;
+  note?: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | string;
+  adminNote?: string | null;
+  createdAt?: string;
+  reviewedAt?: string | null;
+  approvedStudent?: {
+    user?: {
+      firstName?: string;
+      lastName?: string;
+    };
+    class?: {
+      name?: string;
+      academicYear?: string;
+    } | null;
+  } | null;
 };
 
 type MyPortalPageProps = {
@@ -422,6 +445,254 @@ function AttendanceSection({
   );
 }
 
+function childEnrollmentStatusLabel(status: string) {
+  if (status === "APPROVED") return "مقبول";
+  if (status === "REJECTED") return "مرفوض";
+  return "في انتظار المراجعة";
+}
+
+function ChildEnrollmentRequestsSection({ apiBaseUrl, token }: MyPortalPageProps) {
+  const [requests, setRequests] = useState<ChildEnrollmentRequestRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    dateOfBirth: "",
+    requestedLevel: "",
+    note: "",
+  });
+
+  const fetchRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const json = await apiGet<ChildEnrollmentRequestRow[]>(
+        `${apiBaseUrl}/api/my-child-enrollment-requests`,
+        token
+      );
+
+      setRequests(Array.isArray(json) ? json : []);
+    } catch (err) {
+      const value = err instanceof Error ? err.message : "تعذر تحميل طلبات تسجيل الأبناء.";
+      setError(translateError(value));
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBaseUrl, token]);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+
+    const firstName = form.firstName.trim();
+    const lastName = form.lastName.trim();
+    const dateOfBirth = form.dateOfBirth.trim();
+    const requestedLevel = form.requestedLevel.trim();
+    const note = form.note.trim();
+
+    if (!firstName || !lastName || !dateOfBirth) {
+      setError("الاسم واللقب وتاريخ الولادة مطلوبة.");
+      setMessage("");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      setMessage("");
+
+      await apiPost<ChildEnrollmentRequestRow, {
+        firstName: string;
+        lastName: string;
+        dateOfBirth: string;
+        requestedLevel: string;
+        note: string;
+      }>(`${apiBaseUrl}/api/child-enrollment-requests`, token, {
+        firstName,
+        lastName,
+        dateOfBirth,
+        requestedLevel,
+        note,
+      });
+
+      setForm({
+        firstName: "",
+        lastName: "",
+        dateOfBirth: "",
+        requestedLevel: "",
+        note: "",
+      });
+
+      setMessage("تم إرسال طلب تسجيل الابن إلى إدارة المدرسة.");
+      await fetchRequests();
+    } catch (err) {
+      const value = err instanceof Error ? err.message : "تعذر إرسال طلب تسجيل الابن.";
+      setError(translateError(value));
+      setMessage("");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl bg-white p-6 text-right shadow-sm" dir="rtl">
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold">طلب تسجيل ابن</h3>
+        <p className="mt-1 text-sm text-slate-500">
+          يمكن للولي إرسال طلب تسجيل ابن، وتقوم إدارة المدرسة بمراجعته وتعيين القسم قبل إنشاء الملف الرسمي.
+        </p>
+      </div>
+
+      {error ? (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
+      {message ? (
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+          {message}
+        </div>
+      ) : null}
+
+      <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">اسم الابن</label>
+          <input
+            value={form.firstName}
+            onChange={(event) => setForm((prev) => ({ ...prev, firstName: event.target.value }))}
+            className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+            placeholder="مثال: أحمد"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">لقب الابن</label>
+          <input
+            value={form.lastName}
+            onChange={(event) => setForm((prev) => ({ ...prev, lastName: event.target.value }))}
+            className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+            placeholder="مثال: بن صالح"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">تاريخ الولادة</label>
+          <input
+            type="date"
+            dir="ltr"
+            value={form.dateOfBirth}
+            onChange={(event) => setForm((prev) => ({ ...prev, dateOfBirth: event.target.value }))}
+            className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">المستوى أو القسم المطلوب</label>
+          <input
+            value={form.requestedLevel}
+            onChange={(event) => setForm((prev) => ({ ...prev, requestedLevel: event.target.value }))}
+            className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+            placeholder="مثال: السنة الخامسة"
+          />
+        </div>
+
+        <div className="space-y-2 md:col-span-2">
+          <label className="text-sm font-medium text-slate-700">ملاحظات اختيارية</label>
+          <textarea
+            value={form.note}
+            onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
+            className="min-h-24 w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+            placeholder="معلومات إضافية تساعد الإدارة على دراسة الطلب"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          >
+            {submitting ? "جاري الإرسال..." : "إرسال طلب التسجيل"}
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-6">
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h4 className="font-semibold">طلباتي السابقة</h4>
+          <button
+            type="button"
+            onClick={fetchRequests}
+            className="rounded-xl border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+          >
+            تحديث
+          </button>
+        </div>
+
+        {loading ? (
+          <LoadingState message="جاري تحميل طلبات تسجيل الأبناء..." />
+        ) : requests.length === 0 ? (
+          <p className="rounded-xl border border-dashed p-4 text-sm text-slate-500">
+            لا توجد طلبات تسجيل أبناء بعد.
+          </p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {requests.map((request) => (
+              <article key={request.id} className="rounded-xl border p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">
+                      {request.firstName} {request.lastName}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      تاريخ الولادة: {formatDate(request.dateOfBirth)}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                    {childEnrollmentStatusLabel(request.status)}
+                  </span>
+                </div>
+
+                {request.requestedLevel ? (
+                  <p className="mt-2 text-sm text-slate-600">
+                    المستوى المطلوب: {request.requestedLevel}
+                  </p>
+                ) : null}
+
+                {request.note ? (
+                  <p className="mt-2 text-sm text-slate-600">ملاحظة: {request.note}</p>
+                ) : null}
+
+                {request.adminNote ? (
+                  <p className="mt-2 text-sm text-slate-600">رد الإدارة: {request.adminNote}</p>
+                ) : null}
+
+                {request.approvedStudent ? (
+                  <p className="mt-2 text-sm text-emerald-700">
+                    تم إنشاء ملف التلميذ: {request.approvedStudent.user?.firstName}{" "}
+                    {request.approvedStudent.user?.lastName}
+                    {request.approvedStudent.class
+                      ? ` - ${request.approvedStudent.class.name}`
+                      : ""}
+                  </p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
   const [data, setData] = useState<ParentPortalResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -533,6 +804,7 @@ export default function MyPortalPage({ apiBaseUrl, token }: MyPortalPageProps) {
 
   return (
       <div className="space-y-6 text-right" dir="rtl">
+      <ChildEnrollmentRequestsSection apiBaseUrl={apiBaseUrl} token={token} />
         <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 className="text-2xl font-bold">فضاء الولي</h2>
