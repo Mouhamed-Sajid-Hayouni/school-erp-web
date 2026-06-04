@@ -33,6 +33,14 @@ const teacherName = (teacher: Teacher) => {
   return fullName || teacher.user.email;
 };
 
+const teacherAbsenceStatusLabel = (status: TeacherAbsenceStatus) =>
+  status === "JUSTIFIED" ? "مبرر" : "غير مبرر";
+
+const teacherAbsenceStatusBadgeClass = (status: TeacherAbsenceStatus) =>
+  status === "JUSTIFIED"
+    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+    : "bg-amber-50 text-amber-700 ring-amber-200";
+
 export default function TeacherAbsencesPage({
   apiBaseUrl,
   token,
@@ -278,7 +286,13 @@ export default function TeacherAbsencesPage({
                       {new Date(absence.date).toLocaleDateString("ar-TN")}
                     </td>
                     <td className="px-4 py-3">
-                      {absence.status === "JUSTIFIED" ? "مبرر" : "غير مبرر"}
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${teacherAbsenceStatusBadgeClass(
+                          absence.status
+                        )}`}
+                      >
+                        {teacherAbsenceStatusLabel(absence.status)}
+                      </span>
                     </td>
                     <td className="px-4 py-3">{absence.reason || "—"}</td>
                   </tr>
