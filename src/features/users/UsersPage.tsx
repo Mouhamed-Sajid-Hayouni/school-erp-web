@@ -152,15 +152,22 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequestRow[]>([]);
+  const [childEnrollmentRequests, setChildEnrollmentRequests] = useState<ChildEnrollmentRequestRow[]>([]);
 
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [, setLoadingClasses] = useState(true);
   const [loadingPendingRequests, setLoadingPendingRequests] = useState(true);
+  const [loadingChildEnrollmentRequests, setLoadingChildEnrollmentRequests] = useState(true);
   const [error, setError] = useState("");
   const [pendingRequestsError, setPendingRequestsError] = useState("");
+  const [childEnrollmentRequestsError, setChildEnrollmentRequestsError] = useState("");
 
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
+  const [approvingChildRequestId, setApprovingChildRequestId] = useState<string | null>(null);
+  const [rejectingChildRequestId, setRejectingChildRequestId] = useState<string | null>(null);
+  const [selectedChildRequestClasses, setSelectedChildRequestClasses] = useState<Record<string, string>>({});
+  const [childRequestAdminNotes, setChildRequestAdminNotes] = useState<Record<string, string>>({});
 
   const fetchUsers = useCallback(async () => {
     try {
