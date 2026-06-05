@@ -192,14 +192,16 @@ export default function AttendancePage({
     const selected = schedules.find((item) => item.id === scheduleId);
     const classId = selected?.class?.id;
 
-    if (!classId) {
+    if (!scheduleId || (!isTeacher && !classId)) {
       setClassStudents([]);
       return;
     }
 
     try {
       const classJson = await apiGet<ClassDetails>(
-        `${apiBaseUrl}/api/classes/${classId}`,
+        isTeacher
+          ? `${apiBaseUrl}/api/my-schedule-students/${scheduleId}`
+          : `${apiBaseUrl}/api/classes/${classId}`,
         token
       );
 
@@ -211,7 +213,7 @@ export default function AttendancePage({
       setClassStudents([]);
       showToast(translated, "error");
     }
-  }, [apiBaseUrl, token, schedules, showToast]);
+  }, [apiBaseUrl, token, schedules, isTeacher, showToast]);
 
   const fetchAttendance = useCallback(async (scheduleId: string, date: string) => {
     if (!scheduleId || !date) return;
