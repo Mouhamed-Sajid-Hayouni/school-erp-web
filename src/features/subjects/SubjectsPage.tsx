@@ -31,6 +31,10 @@ function translateError(message: string) {
     return "انتهت الجلسة أو أن رمز الدخول غير صالح. يرجى تسجيل الدخول من جديد.";
   }
 
+  if (normalized.includes("update")) {
+    return "تعذر تعديل المادة.";
+  }
+
   if (normalized.includes("delete")) {
     return "تعذر حذف المادة.";
   }
@@ -52,6 +56,12 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
 
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    coefficient: "1",
+  });
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchSubjects = useCallback(async () => {
@@ -136,6 +146,81 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
       showToast(translated, "error");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleStartEdit = (item: SubjectRow) => {
+    setEditingId(item.id);
+    setEditForm({
+      name: item.name,
+      coefficient: String(item.coefficient),
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm({
+      name: "",
+      coefficient: "1",
+    });
+  };
+
+  const handleEditChange = (field: "name" | "coefficient", value: string) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleUpdate = async (id: string) => {
+    const trimmedName = editForm.name.trim();
+    const parsedCoefficient = Number(editForm.coefficient);
+
+    if (!trimmedName) {
+      const message = "اسم المادة مطلوب.";
+      setError(message);
+      showToast(message, "error");
+      return;
+    }
+
+    if (Number.isNaN(parsedCoefficient) || parsedCoefficient <= 0) {
+      const message = "يجب أن يكون المعامل عددًا أكبر من 0.";
+      setError(message);
+      showToast(message, "error");
+      return;
+    }
+
+    try {
+      setUpdatingId(id);
+      setError("");
+
+      const response = await fetch(`${apiBaseUrl}/api/subjects/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: trimmedName,
+          coefficient: parsedCoefficient,
+        }),
+      });
+
+      const updated = (await response.json()) as SubjectRow | { error?: string };
+
+      if (!response.ok) {
+        throw new Error("error" in updated ? updated.error : "Failed to update subject");
+      }
+
+      setSubjects((prev) =>
+        prev.map((item) => (item.id === id ? (updated as SubjectRow) : item))
+      );
+      handleCancelEdit();
+      showToast("تم تعديل المادة بنجاح.", "success");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
+      const translated = translateError(message);
+      setError(translated);
+      showToast(translated, "error");
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -249,23 +334,85 @@ export default function SubjectsPage({ apiBaseUrl, token }: SubjectsPageProps) {
                 </tr>
               </thead>
               <tbody>
-                {filteredSubjects.map((item) => (
-                  <tr key={item.id} className="border-b last:border-b-0">
-                    <td className="px-3 py-3 font-medium">{item.name}</td>
-                    <td className="px-3 py-3 text-sm text-slate-600">
-                      {item.coefficient}
-                    </td>
-                    <td className="px-3 py-3">
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        disabled={deletingId === item.id}
-                        className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {deletingId === item.id ? "جارٍ الحذف..." : "حذف"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredSubjects.map((item) => {
+                  const isEditing = editingId === item.id;
+                  const isBusy = deletingId === item.id || updatingId === item.id;
+
+                  return (
+                    <tr key={item.id} className="border-b last:border-b-0">
+                      <td className="px-3 py-3 font-medium">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editForm.name}
+                            onChange={(e) => handleEditChange("name", e.target.value)}
+                            className="w-full rounded-xl border px-3 py-2 outline-none focus:border-slate-400"
+                          />
+                        ) : (
+                          item.name
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-slate-600">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="0.1"
+                            step="0.1"
+                            dir="ltr"
+                            value={editForm.coefficient}
+                            onChange={(e) => handleEditChange("coefficient", e.target.value)}
+                            className="w-full rounded-xl border px-3 py-2 text-left outline-none focus:border-slate-400"
+                          />
+                        ) : (
+                          item.coefficient
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          {isEditing ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdate(item.id)}
+                                disabled={isBusy}
+                                className="rounded-lg border border-emerald-200 px-3 py-1 text-sm text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                              >
+                                {updatingId === item.id ? "جاري الحفظ..." : "حفظ"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEdit}
+                                disabled={isBusy}
+                                className="rounded-lg border px-3 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                              >
+                                إلغاء
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(item)}
+                                disabled={isBusy}
+                                className="rounded-lg border border-blue-200 px-3 py-1 text-sm text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                              >
+                                تعديل
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item.id)}
+                                disabled={isBusy}
+                                className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                              >
+                                {deletingId === item.id ? "جاري الحذف..." : "حذف"}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
