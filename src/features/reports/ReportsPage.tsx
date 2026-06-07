@@ -850,7 +850,7 @@ export default function ReportsPage() {
 
     const rows = [
       ["التلميذ", studentName],
-      ["\u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a", getVisibleStudentEmail(studentReport.student.email)],
+      ["البريد الإلكتروني", getVisibleStudentEmail(studentReport.student.email)],
       ["القسم", studentReport.class?.name ?? ""],
       ["السنة الدراسية", studentReport.class?.academicYear ?? ""],
       ["الثلاثي", formatPeriodLabel(studentReport.period)],

@@ -15,6 +15,6 @@ export function getVisibleStudentEmail(email?: string | null) {
 export function getStudentEmailDisplay(email?: string | null) {
   return (
     getVisibleStudentEmail(email) ||
-    "\u0628\u062f\u0648\u0646 \u0628\u0631\u064a\u062f \u062f\u062e\u0648\u0644"
+    "بدون بريد دخول"
   );
 }

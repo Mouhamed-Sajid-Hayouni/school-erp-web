@@ -195,7 +195,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       );
       setPendingRequests(Array.isArray(json) ? json : []);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "\u062d\u062f\u062b \u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u062a\u0648\u0642\u0639.";
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
       setPendingRequestsError(translateError(message));
     } finally {
       setLoadingPendingRequests(false);
@@ -273,7 +273,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       await fetchPendingRequests();
       await fetchUsers();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "\u062d\u062f\u062b \u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u062a\u0648\u0642\u0639.";
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
       setPendingRequestsError(translateError(message));
     } finally {
       setApprovingRequestId(null);
@@ -299,7 +299,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
       await fetchPendingRequests();
       await fetchUsers();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "\u062d\u062f\u062b \u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u062a\u0648\u0642\u0639.";
+      const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
       setPendingRequestsError(translateError(message));
     } finally {
       setRejectingRequestId(null);
@@ -372,26 +372,26 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
   );
 
   const pendingRequestText = {
-    requestsTitle: '\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u062d\u0633\u0627\u0628\u0627\u062a \u0627\u0644\u0645\u0639\u0644\u0651\u0642\u0629',
-    requestsDescription: '\u062a\u0641\u0639\u064a\u0644 \u062d\u0633\u0627\u0628\u0627\u062a \u0627\u0644\u0623\u0648\u0644\u064a\u0627\u0621 \u0648\u0627\u0644\u0645\u0639\u0644\u0645\u064a\u0646 \u0628\u0639\u062f \u0627\u0644\u062a\u062b\u0628\u062a \u0645\u0646 \u0627\u0644\u0637\u0644\u0628. \u0644\u0627 \u064a\u062a\u0645 \u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628\u0627\u062a \u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u0644\u062a\u0644\u0627\u0645\u064a\u0630.',
-    refresh: '\u062a\u062d\u062f\u064a\u062b \u0627\u0644\u0637\u0644\u0628\u0627\u062a',
-    loading: '\u062c\u0627\u0631\u064d \u062a\u062d\u0645\u064a\u0644 \u0637\u0644\u0628\u0627\u062a \u0627\u0644\u062d\u0633\u0627\u0628...',
-    empty: '\u0644\u0627 \u062a\u0648\u062c\u062f \u0637\u0644\u0628\u0627\u062a \u062d\u0633\u0627\u0628 \u0645\u0639\u0644\u0651\u0642\u0629.',
-    approve: '\u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u062d\u0633\u0627\u0628',
-    approving: '\u062c\u0627\u0631\u064d \u0627\u0644\u062a\u0641\u0639\u064a\u0644...',
-    reject: '\u0631\u0641\u0636 \u0627\u0644\u0637\u0644\u0628',
-    rejecting: '\u062c\u0627\u0631\u064d \u0627\u0644\u0631\u0641\u0636...',
-    confirm: '\u0647\u0644 \u062a\u0631\u064a\u062f \u062a\u0641\u0639\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u062d\u0633\u0627\u0628\u061f',
-    rejectConfirm: '\u0647\u0644 \u062a\u0631\u064a\u062f \u0631\u0641\u0636 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628\u061f \u0633\u064a\u062a\u0645 \u062d\u0630\u0641 \u062d\u0633\u0627\u0628\u0647 \u0627\u0644\u0645\u0639\u0644\u0651\u0642.',
-    parent: '\u0648\u0644\u064a',
-    teacher: '\u0645\u0639\u0644\u0651\u0645',
-    address: '\u0627\u0644\u0639\u0646\u0648\u0627\u0646',
-    specialty: '\u0627\u0644\u0627\u062e\u062a\u0635\u0627\u0635',
-    submittedAt: '\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0637\u0644\u0628',
-    pendingLabel: '\u0641\u064a \u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629',
-    noExtra: '\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0625\u0636\u0627\u0641\u064a\u0629.',
-    phone: '\u0627\u0644\u0647\u0627\u062a\u0641',
-    email: '\u0627\u0644\u0628\u0631\u064a\u062f \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a',
+    requestsTitle: 'طلبات الحسابات المعلّقة',
+    requestsDescription: 'تفعيل حسابات الأولياء والمعلمين بعد التثبت من الطلب. لا يتم إنشاء حسابات مباشرة للتلاميذ.',
+    refresh: 'تحديث الطلبات',
+    loading: 'جارٍ تحميل طلبات الحساب...',
+    empty: 'لا توجد طلبات حساب معلّقة.',
+    approve: 'تفعيل الحساب',
+    approving: 'جارٍ التفعيل...',
+    reject: 'رفض الطلب',
+    rejecting: 'جارٍ الرفض...',
+    confirm: 'هل تريد تفعيل هذا الحساب؟',
+    rejectConfirm: 'هل تريد رفض هذا الطلب؟ سيتم حذف حسابه المعلّق.',
+    parent: 'ولي',
+    teacher: 'معلّم',
+    address: 'العنوان',
+    specialty: 'الاختصاص',
+    submittedAt: 'تاريخ الطلب',
+    pendingLabel: 'في انتظار الموافقة',
+    noExtra: 'لا توجد معلومات إضافية.',
+    phone: 'الهاتف',
+    email: 'البريد الإلكتروني',
   };
 
   return (
@@ -688,7 +688,7 @@ export default function UsersPage({ apiBaseUrl, token }: UsersPageProps) {
                     </td>
 
                     <td className="px-3 py-3 text-left text-sm text-slate-600" dir="ltr">
-                      <span dir={user.role === "STUDENT" ? "rtl" : "ltr"} className="block text-left leading-relaxed" style={{ width: "260px", maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={user.role === "STUDENT" ? undefined : user.email}>{user.role === "STUDENT" ? "\u0628\u062f\u0648\u0646 \u0628\u0631\u064a\u062f \u062f\u062e\u0648\u0644" : truncateLongText(user.email)}</span>
+                      <span dir={user.role === "STUDENT" ? "rtl" : "ltr"} className="block text-left leading-relaxed" style={{ width: "260px", maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={user.role === "STUDENT" ? undefined : user.email}>{user.role === "STUDENT" ? "بدون بريد دخول" : truncateLongText(user.email)}</span>
                     </td>
 
                     <td className="px-3 py-3">
